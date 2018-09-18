@@ -93,7 +93,7 @@ void EnhancedUplinkPacketScheduler::RBsAllocation() {
 	bool allocationMade;
 	double metrics[nbOfRBs][users->size()];
 	int requiredPRBs[users->size()];
-	double power;//instantanious power
+	double power;      //instantanious power
 
 	//Some initialization
 	availableRBs = nbOfRBs;
@@ -138,7 +138,8 @@ void EnhancedUplinkPacketScheduler::RBsAllocation() {
 	}
 
 #ifdef SCHEDULER_DEBUG
-	std::cout << ", available RBs " << nbOfRBs << ", users " << users->size () << std::endl;
+	std::cout << ", available RBs " << nbOfRBs << ", users " << users->size()
+			<< std::endl;
 	for (int ii = 0; ii < users->size(); ii++) {
 		std::cout << "Metrics for user "
 				<< users->at(ii)->m_userToSchedule->GetIDNetworkNode() << "\n";
@@ -232,23 +233,34 @@ void EnhancedUplinkPacketScheduler::RBsAllocation() {
 						scheduledUser->m_userToSchedule->GetIDNetworkNode(),
 						scheduledUser->m_selectedMCS,
 						requiredPRBs[selectedUser],
-						scheduledUser->m_listOfAllocatedRBs.size()
-						);
+						scheduledUser->m_listOfAllocatedRBs.size());
 				for (int i = 0; i < scheduledUser->m_listOfAllocatedRBs.size();
 						i++)
 					printf("%d ", scheduledUser->m_listOfAllocatedRBs.at(i));
 				printf("\n------------------\n");
 
 				//HB
-				m_power[scheduledUser->m_userToSchedule->GetIDNetworkNode()] += CalculatePower(scheduledUser->m_listOfAllocatedRBs.size());
+				m_power[scheduledUser->m_userToSchedule->GetIDNetworkNode()] +=
+						CalculatePower(
+								scheduledUser->m_listOfAllocatedRBs.size());
 
-				m_power[scheduledUser->m_userToSchedule->GetIDNetworkNode()] += CalculatePower(scheduledUser->m_listOfAllocatedRBs.size());
-				std::cout << "power[" << scheduledUser->m_userToSchedule->GetIDNetworkNode()<< "]= "
-						  << m_power[scheduledUser->m_userToSchedule->GetIDNetworkNode()] << std::endl;
+				m_power[scheduledUser->m_userToSchedule->GetIDNetworkNode()] +=
+						CalculatePower(
+								scheduledUser->m_listOfAllocatedRBs.size());
 
-				m_NRBs[scheduledUser->m_userToSchedule->GetIDNetworkNode()]+= scheduledUser->m_listOfAllocatedRBs.size();
-				std::cout << "EFM NRbs of " << scheduledUser->m_userToSchedule->GetIDNetworkNode() << " = "
-						<< m_NRBs[scheduledUser->m_userToSchedule->GetIDNetworkNode()] << std::endl;
+				std::cout << "power["
+						<< scheduledUser->m_userToSchedule->GetIDNetworkNode()
+						<< "]= "
+						<< m_power[scheduledUser->m_userToSchedule->GetIDNetworkNode()]
+						<< std::endl;
+
+				m_NRBs[scheduledUser->m_userToSchedule->GetIDNetworkNode()] +=
+						scheduledUser->m_listOfAllocatedRBs.size();
+				std::cout << "EFM NRbs of "
+						<< scheduledUser->m_userToSchedule->GetIDNetworkNode()
+						<< " = "
+						<< m_NRBs[scheduledUser->m_userToSchedule->GetIDNetworkNode()]
+						<< std::endl;
 				//end HB
 #endif
 			}
@@ -257,9 +269,5 @@ void EnhancedUplinkPacketScheduler::RBsAllocation() {
 		}
 	} //while
 
-
 }
-
-
-
 
