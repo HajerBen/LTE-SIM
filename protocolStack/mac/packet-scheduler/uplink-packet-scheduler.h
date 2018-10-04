@@ -57,7 +57,7 @@ public:
 	virtual double ComputeSchedulingMetric(UserToSchedule* user,
 			int subchannel) = 0;
 //HB
-	double CalculatePower(int);
+	double CalculatePower(int nbRBs, UserToSchedule* ue);//, UserToSchedule* ue);
 
 //HB
 protected:
