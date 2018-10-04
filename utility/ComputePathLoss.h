@@ -53,10 +53,12 @@ ComputePathLossForInterference (NetworkNode* src, NetworkNode* dst)
 	  // Rural Area
 	  // pathLoss = 100.54 + (34.1 * log10 (distance * 0.001));
 
-	  if ( ((UserEquipment*) dst)->IsIndoor() )
-	  {
-		  pathLoss = pathLoss + externalWallAttenuation;
-	  }
+	  // TODO à decommenter
+
+//	  if ( ((UserEquipment*) dst)->IsIndoor() )
+//	  {
+//		  pathLoss = pathLoss + externalWallAttenuation;
+//	  }
 
 	  return pathLoss;
     }
