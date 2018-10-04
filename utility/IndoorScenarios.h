@@ -129,17 +129,18 @@ GetWalls(Femtocell* henb_cell, UserEquipment* ue)
 		ue_cell_id = henb_building->GetFemtoIdInBuilding(NetworkManager::Init()->GetBelongingCellFromPosition(ue)->GetIdCell());
 
 	}
-	else if(ue->IsIndoor())
-	{
-		// UE is inside a different Building
-
-		// there sure are 2 external walls in between
-		nbWalls[0] = 2;
-
-		// For internal wall calculation, we consider the closest femtocell to the ue
-		ue_cell_id = henb_building->GetFemtoIdInBuilding(henb_building->GetClosestFemtoCellToUE(ue)->GetIdCell());
-
-	}
+	// TODO à decommenter
+//	else if(ue->IsIndoor())
+//	{
+//		// UE is inside a different Building
+//
+//		// there sure are 2 external walls in between
+//		nbWalls[0] = 2;
+//
+//		// For internal wall calculation, we consider the closest femtocell to the ue
+//		ue_cell_id = henb_building->GetFemtoIdInBuilding(henb_building->GetClosestFemtoCellToUE(ue)->GetIdCell());
+//
+//	}
 	else
 	{
 		// UE is in the macro-cell
