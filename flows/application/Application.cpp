@@ -397,7 +397,7 @@ Application::Trace (Packet* p)
 			<< " DST " << GetDestination ()->GetIDNetworkNode ()
 			<< " T " << Simulator::Init()->Now()
 	        << " " << ue->IsIndoor ()
-			<< " POWER OF:" << ue->GetIDNetworkNode() << " ="<< ue->GetPower() << std::endl;
+			<< std::endl;
 
     }
   else
