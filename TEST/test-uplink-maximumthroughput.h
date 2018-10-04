@@ -55,7 +55,7 @@ static void TestUplinkMaximumThroughput ()
   Cell *cell = new Cell (0, 1, 0.35, 0, 0);
   LteChannel *dlCh = new LteChannel ();
   LteChannel *ulCh = new LteChannel ();
-  BandwidthManager* spectrum = new BandwidthManager (5, 5, 0, 0);
+  BandwidthManager* spectrum = new BandwidthManager (3, 3, 0, 0);
 
   //Create ENodeB
   ENodeB* enb = new ENodeB (1, cell);
@@ -123,10 +123,16 @@ static void TestUplinkMaximumThroughput ()
 														 Application::APPLICATION_TYPE_INFINITE_BUFFER,
 														 qos,
 														 startTime, stopTime);
-	  idUe++;
-	  applicationID++;
-	  dstPort++;
+
+
+
+
+	  	  idUe++;
+	  	  applicationID++;
+	  	  dstPort++;
+
     }
+
 
 
   Simulator::Init ()->SetStop (5);

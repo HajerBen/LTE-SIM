@@ -76,7 +76,7 @@ static void TestUplinkRr ()
   int srcPort = 0;
   int dstPort = 100;
   int startTime = 0.01; //s
-  int stopTime = 1.01;  //s
+  int stopTime = 10;  //s
 
   for (int i = 0; i < nbUEs; i++)
     {
@@ -124,7 +124,7 @@ static void TestUplinkRr ()
 	  cbrApp->SetDestinationPort(dstPort);
 	  cbrApp->SetStartTime(startTime);
 	  cbrApp->SetStopTime(stopTime);
-	  cbrApp->SetInterval (0.008);
+	  cbrApp->SetInterval (1);
 	  cbrApp->SetSize (500);
 	  cbrApp->SetQoSParameters(qos);
 
@@ -133,7 +133,10 @@ static void TestUplinkRr ()
 			  dstPort,TransportProtocol::TRANSPORT_PROTOCOL_TYPE_UDP);
 	  cbrApp->SetClassifierParameters (cp);
 
-	  std::cout << "CREATED CBR APPLICATION, ID " << applicationID << std::endl;
+	  std::cout << "CREATED CBR APPLICATION, ID " << applicationID
+			  << " S " << cp->GetSourceID()
+			  <<" D " << cp->GetDestinationID()
+			  <<std::endl;
 
 
 	  idUe++;
@@ -148,7 +151,7 @@ static void TestUplinkRr ()
 
 
   //Simulator::Init ()->SetStop (0.01);
-  Simulator::Init ()->SetStop (1.01);
+  Simulator::Init ()->SetStop (stopTime);
   Simulator::Init()->Run ();
 }
 
