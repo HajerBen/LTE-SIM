@@ -65,6 +65,7 @@ void myScheduler::RBsAllocation() {
 	 */
 #ifdef SCHEDULER_DEBUG
 	std::cout << " ---- UL RBs Allocation(mySched)";
+
 #endif
 
 	UsersToSchedule *users = GetUsersToSchedule();
