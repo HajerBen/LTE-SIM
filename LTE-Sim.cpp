@@ -49,7 +49,8 @@
 #include "TEST/test-uplink-fme.h"
 #include "TEST/test-uplink-channel-quality.h"
 #include "TEST/test-uplink-rr.h"
-
+#include "TEST/testMyScheduler.h"
+#include "TEST/testUplink.h"
 #include "utility/help.h"
 #include <iostream>
 #include <queue>
@@ -282,5 +283,24 @@ int main(int argc, char *argv[]) {
 		if (strcmp(argv[1], "testrr") == 0) {
 			TestUplinkRr();
 		}
+		if (strcmp(argv[1], "testMyScheduler") == 0) {
+			TestMyscheduler();
+		}
+		if (strcmp(argv[1], "testUplink") == 0) {
+
+
+			double radius = atof(argv[2]);
+			int nbUE = atoi(argv[3]);
+			int sched_type = atoi(argv[4]);
+			int stopTime = atoi(argv[5]);
+			int nbVideo  = atoi(argv[6]);
+			int nbCBR = atoi(argv[7]);
+			int videoBitRate = atoi(argv[8]);
+			double maxDelay = atoi(argv[9]);
+			//int frame_struct = atoi(argv[5]);
+			TestUplink(radius, nbUE,sched_type, stopTime,nbVideo, nbCBR, videoBitRate , maxDelay);
+
+		}
+
 	}
 }
