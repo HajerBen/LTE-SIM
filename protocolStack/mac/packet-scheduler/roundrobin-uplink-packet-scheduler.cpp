@@ -93,6 +93,7 @@ void RoundRobinUplinkPacketScheduler::RBsAllocation() {
 
 #ifdef SCHEDULER_DEBUG
 	std::cout << "  PRB to assign " << nbOfRBs << ", PRB for user "
+
 			<< nbPrbToAssign << std::endl;
 #endif
 
@@ -102,7 +103,7 @@ void RoundRobinUplinkPacketScheduler::RBsAllocation() {
 			m_roundRobinId = 0; //restart again from the beginning
 
 		UserToSchedule* scheduledUser = users->at(m_roundRobinId);
-
+		std::cout << "user to schedule " << scheduledUser->m_userToSchedule->GetIDNetworkNode() << std::endl;
 		std::vector<double> sinrs;
 		for (int i = 0; i < nbPrbToAssign; i++) {
 			double chCondition = scheduledUser->m_channelContition.at(s + i);
@@ -123,16 +124,14 @@ void RoundRobinUplinkPacketScheduler::RBsAllocation() {
 		s = s + nbPrbToAssign;
 		m_roundRobinId++;
 		//HB
-		m_power[scheduledUser->m_userToSchedule->GetIDNetworkNode()] +=
-				CalculatePower(scheduledUser->m_listOfAllocatedRBs.size());
+		m_power[scheduledUser->m_userToSchedule->GetIDNetworkNode()] =
+				CalculatePower(scheduledUser->m_listOfAllocatedRBs.size(),scheduledUser);
 
-		m_power[scheduledUser->m_userToSchedule->GetIDNetworkNode()] +=
-				CalculatePower(scheduledUser->m_listOfAllocatedRBs.size());
-		std::cout << "power["
+				std::cout << "power["
 				<< scheduledUser->m_userToSchedule->GetIDNetworkNode() << "]= "
 				<< m_power[scheduledUser->m_userToSchedule->GetIDNetworkNode()]
 				<< std::endl;
-		m_NRBs[scheduledUser->m_userToSchedule->GetIDNetworkNode()] +=
+		m_NRBs[scheduledUser->m_userToSchedule->GetIDNetworkNode()] =
 				scheduledUser->m_listOfAllocatedRBs.size();
 		std::cout << "RR NRbs of "
 				<< scheduledUser->m_userToSchedule->GetIDNetworkNode() << " = "

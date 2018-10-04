@@ -36,6 +36,7 @@
 #include "../../../flows/MacQueue.h"
 #include "../../../utility/eesm-effective-sinr.h"
 
+
 #define SCHEDULER_DEBUG
 
 EnhancedUplinkPacketScheduler::EnhancedUplinkPacketScheduler() {
@@ -93,7 +94,7 @@ void EnhancedUplinkPacketScheduler::RBsAllocation() {
 	bool allocationMade;
 	double metrics[nbOfRBs][users->size()];
 	int requiredPRBs[users->size()];
-	double power;      //instantanious power
+
 
 	//Some initialization
 	availableRBs = nbOfRBs;
@@ -227,6 +228,20 @@ void EnhancedUplinkPacketScheduler::RBsAllocation() {
 								scheduledUser->m_selectedMCS,
 								scheduledUser->m_listOfAllocatedRBs.size()) / 8;
 
+				//HB
+						m_power[scheduledUser->m_userToSchedule->GetIDNetworkNode()] =
+								CalculatePower(scheduledUser->m_listOfAllocatedRBs.size(),scheduledUser);
+						std::cout << "power["
+								<< scheduledUser->m_userToSchedule->GetIDNetworkNode() << "]= "
+								<< m_power[scheduledUser->m_userToSchedule->GetIDNetworkNode()]
+								<< std::endl;
+						m_NRBs[scheduledUser->m_userToSchedule->GetIDNetworkNode()] =
+								scheduledUser->m_listOfAllocatedRBs.size();
+						std::cout << "FME NRbs of "
+								<< scheduledUser->m_userToSchedule->GetIDNetworkNode() << " = "
+								<< m_NRBs[scheduledUser->m_userToSchedule->GetIDNetworkNode()]
+								<< std::endl;
+				//end HB
 #ifdef SCHEDULER_DEBUG
 				printf(
 						"Scheduled User = %d mcs = %d Required RB's = %d Allocated RB's= %d\n",
@@ -239,29 +254,6 @@ void EnhancedUplinkPacketScheduler::RBsAllocation() {
 					printf("%d ", scheduledUser->m_listOfAllocatedRBs.at(i));
 				printf("\n------------------\n");
 
-				//HB
-				m_power[scheduledUser->m_userToSchedule->GetIDNetworkNode()] +=
-						CalculatePower(
-								scheduledUser->m_listOfAllocatedRBs.size());
-
-				m_power[scheduledUser->m_userToSchedule->GetIDNetworkNode()] +=
-						CalculatePower(
-								scheduledUser->m_listOfAllocatedRBs.size());
-
-				std::cout << "power["
-						<< scheduledUser->m_userToSchedule->GetIDNetworkNode()
-						<< "]= "
-						<< m_power[scheduledUser->m_userToSchedule->GetIDNetworkNode()]
-						<< std::endl;
-
-				m_NRBs[scheduledUser->m_userToSchedule->GetIDNetworkNode()] +=
-						scheduledUser->m_listOfAllocatedRBs.size();
-				std::cout << "EFM NRbs of "
-						<< scheduledUser->m_userToSchedule->GetIDNetworkNode()
-						<< " = "
-						<< m_NRBs[scheduledUser->m_userToSchedule->GetIDNetworkNode()]
-						<< std::endl;
-				//end HB
 #endif
 			}
 		} else { // nothing to do exit the allocation loop
