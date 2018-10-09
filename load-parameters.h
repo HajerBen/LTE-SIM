@@ -28,7 +28,7 @@
 
 
 /* path */
-static std::string path ("/home/baati/Bureau/hajer/simulateurs/lte-sim-read-only/");
+static std::string path ("/home/hajer/git/LTE-SIM/");
 
 
 /* tracing */
