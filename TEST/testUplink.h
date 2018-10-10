@@ -79,7 +79,7 @@ static void TestUplink(double radius, int nbUe, int sched_Type, int stopTime,
 		std::cout << "Scheduler MySched " << std::endl;
 		break;
 	default:
-		uplink_scheduler_type = ENodeB::ULScheduler_TYPE_MYSCHEDULER;
+		uplink_scheduler_type = ENodeB::ULScheduler_TYPE_Recursive_Maximum_Expansion;
 		break;
 
 	}
