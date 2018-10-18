@@ -53,6 +53,7 @@ DL_PF_PacketScheduler::ComputeSchedulingMetric (RadioBearer *bearer, double spec
    * as follows:
    *
    * metric = spectralEfficiency / averageRate
+   * 180000:It represents the size if a sub-channel in the frequency domain.
    */
 
   double metric = (spectralEfficiency * 180000.)
