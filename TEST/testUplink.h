@@ -78,6 +78,10 @@ static void TestUplink(double radius, int nbUe, int sched_Type, int stopTime,
 		uplink_scheduler_type = ENodeB::ULScheduler_TYPE_Recursive_Maximum_Expansion;
 		std::cout << "Scheduler RME " << std::endl;
 		break;
+	case 5:
+			uplink_scheduler_type = ENodeB::ULScheduler_TYPE_Carrier_By_Carrier;;
+			std::cout << "Scheduler Carrier By Carrier " << std::endl;
+			break;
 	default:
 		uplink_scheduler_type = ENodeB::ULScheduler_TYPE_FME;
 		break;
