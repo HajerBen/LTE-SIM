@@ -21,6 +21,8 @@ public:
     virtual double ComputeSchedulingMetric (UserToSchedule* user, int subchannel);
 
 	virtual void RBsAllocation ();
+	void SelectFlowsToSchedule ();
+	void ContinueAllocation();
 
 };
 
