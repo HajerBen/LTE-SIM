@@ -128,17 +128,17 @@ void myScheduler::RBsAllocation() {
 	for (int j = 0; j < users->size(); j++) {
 		scheduledUser = users->at(j);
 #ifdef SCHEDULER_DEBUG
-		cout << "\n" << "User " << j; // << "CQI Vector";
+		cout << "\n" << "User " << j << std::endl; // << "CQI Vector";
 #endif
-
+		std::cout << "CQI " <<"\n";
 		std::vector<double> sinrs;
 		for (std::vector<int>::iterator c =
 				scheduledUser->m_channelContition.begin();
 				c != scheduledUser->m_channelContition.end(); c++) {
-			//cout << *c <<" ";
+			std::cout <<  *c <<" " ;
 			sinrs.push_back(GetMacEntity()->GetAmcModule()->GetSinrFromCQI(*c));
 		}
-
+		std::cout <<"\n";
 		double effectiveSinr = GetEesmEffectiveSinr(sinrs);
 
 		int mcs = GetMacEntity()->GetAmcModule()->GetMCSFromCQI(
@@ -150,7 +150,10 @@ void myScheduler::RBsAllocation() {
 								1) / 8));
 #ifdef SCHEDULER_DEBUG
 		cout << " EffSINR = " << effectiveSinr << "  MCS = " << mcs
-				<< "Required RBs " << requiredPRBs[j] << "\n";
+				<< " Required RBs " << requiredPRBs[j] <<
+				" data to transmit " << scheduledUser->m_dataToTransmit <<
+				" TB size " << GetMacEntity()->GetAmcModule()->GetTBSizeFromMCS(mcs,
+						1) << "\n";
 #endif
 	}
 
@@ -334,6 +337,7 @@ void myScheduler::RBsAllocation() {
 							*it);
 					MAllocation[*it] = selectedUser;
 					availableRBs--;
+					GetPathLoss(users->at(selectedUser));
 				} else
 					break;
 			}
@@ -519,7 +523,7 @@ void myScheduler::RBsAllocation() {
 			m_power[j] += CalculatePower(
 					users->at(j)->m_listOfAllocatedRBs.size(), scheduledUser);
 
-		std::cout << "power["
+		std::cout << "Average power["
 				<< scheduledUser->m_userToSchedule->GetIDNetworkNode() << "]= "
 				<< m_power[j] << std::endl;
 		//RBs /user/TTI
