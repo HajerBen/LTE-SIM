@@ -103,8 +103,20 @@ void myScheduler::RBsAllocation() {
 	bool ContinueNextLeft;
 	std::vector<int> reservedRbs;
 	int nbrOfScheduledUsers;
+
+	std::vector<int> bestMetrics;
+	std::vector<int> bestRBs;
+	int nbRB[nbOfRBs];
+	int nbRBRight[nbOfRBs];
+	int nbRBLeft[nbOfRBs];
+	int selectedI; //to identify the selected PRB
 	//end HB
 	//Some initialization
+	/*for (int i = 0; i < nbOfRBs ; i++)
+	 {
+	 bestMetrics[i] = -1;
+	 bestRBs[i] = -1;
+	 }*/
 	nbrOfScheduledUsers = 0;
 	availableRBs = nbOfRBs;
 	unallocatedUsers = users->size();
@@ -130,15 +142,15 @@ void myScheduler::RBsAllocation() {
 #ifdef SCHEDULER_DEBUG
 		cout << "\n" << "User " << j << std::endl; // << "CQI Vector";
 #endif
-		std::cout << "CQI " <<"\n";
+		std::cout << "CQI " << "\n";
 		std::vector<double> sinrs;
 		for (std::vector<int>::iterator c =
 				scheduledUser->m_channelContition.begin();
 				c != scheduledUser->m_channelContition.end(); c++) {
-			std::cout <<  *c <<" " ;
+			std::cout << *c << " ";
 			sinrs.push_back(GetMacEntity()->GetAmcModule()->GetSinrFromCQI(*c));
 		}
-		std::cout <<"\n";
+		std::cout << "\n";
 		double effectiveSinr = GetEesmEffectiveSinr(sinrs);
 
 		int mcs = GetMacEntity()->GetAmcModule()->GetMCSFromCQI(
@@ -150,10 +162,10 @@ void myScheduler::RBsAllocation() {
 								1) / 8));
 #ifdef SCHEDULER_DEBUG
 		cout << " EffSINR = " << effectiveSinr << "  MCS = " << mcs
-				<< " Required RBs " << requiredPRBs[j] <<
-				" data to transmit " << scheduledUser->m_dataToTransmit <<
-				" TB size " << GetMacEntity()->GetAmcModule()->GetTBSizeFromMCS(mcs,
-						1) << "\n";
+				<< " Required RBs " << requiredPRBs[j] << " data to transmit "
+				<< scheduledUser->m_dataToTransmit << " TB size "
+				<< GetMacEntity()->GetAmcModule()->GetTBSizeFromMCS(mcs, 1)
+				<< "\n";
 #endif
 	}
 
@@ -176,18 +188,17 @@ void myScheduler::RBsAllocation() {
 		//first step: find the best user-RB combinaision
 		selectedPRB = -1;
 		selectedUser = -1;
-		ContinueRight = ContinueNextRight = true;
-		ContinueLeft = ContinueNextLeft = true;
+		ContinueRight = true;
+		ContinueLeft = true;
 		bestMetric = (double) (-(1 << 30));
 		std::cout << "now= " << Simulator::Init()->Now() << std::endl;
-		//Search for the best metric
+		//Search the user with best metric
 		for (int i = 0; i < nbOfRBs; i++) {
 			if (!Allocated[i]) { // check only unallocated PRB's
 				for (int j = 0; j < users->size(); j++) {
 					if (users->at(j)->m_listOfAllocatedRBs.size() == 0
 							&& requiredPRBs[j] > 0) //only unallocated users requesting some RB's
 						if (bestMetric < metrics[i][j]) {
-							selectedPRB = i;
 							selectedUser = j;
 							bestMetric = metrics[i][j];
 
@@ -196,343 +207,291 @@ void myScheduler::RBsAllocation() {
 
 			}
 		}
-		std::cout << "**bestMetric  = " << bestMetric / 1000.0
-				<< " selected prb " << selectedPRB << " selected User "
-				<< selectedUser << std::endl;
+		std::cout << " selected User " << selectedUser << std::endl;
+		//Find the 10 best Metrics for selected Ue
+
+		//initialization
 		if (selectedUser != -1) {
-			reservedRbs.push_back(selectedPRB);
+			bestMetrics.clear();
+			bestRBs.clear();
+			for (int i = 0; i < nbOfRBs; i++) {
+				if (!Allocated[i]) {
+					bestMetrics.push_back(metrics[i][selectedUser]);
+					bestRBs.push_back(i);
+				}
+			}
+//sort the bestMetrics
+			for (int j = 0; j < bestMetrics.size(); j++) {
+				for (int i = 0; i < bestMetrics.size() - 1; i++) {
+					if (bestMetrics[i] < bestMetrics[i + 1]) {
+						int a, b;
+						a = bestMetrics[i];
+						bestMetrics[i] = bestMetrics[i + 1];
+						bestMetrics[i + 1] = a;
+						b = bestRBs[i];
+						bestRBs[i] = bestRBs[i + 1];
+						bestRBs[i + 1] = b;
+
+					}
+				}
+			}
+			/*//affichage
+			std::cout << "bestMetrics\n " ;
+			for (int j = 0; j < bestMetrics.size(); j++)
+				std::cout << bestMetrics[j]<< std::endl;*/
+
+			//find for each best metric the maximum RBs that can be allocated to selectedUE
+			for (int i = 0; i < bestMetrics.size(); i++) {
+				right = bestRBs[i] + 1;
+				left = bestRBs[i] - 1;
+				nbRBRight[i] = 0;
+				nbRBLeft[i] = 0;
+				if (left >= 0 && Allocated[left] && right < nbOfRBs
+						&& Allocated[right]){
+//					std::cout << "nothing is available" << std::endl;
+					break; // nothing is available, since we need to have contiguous allocation
+				}
+					for (int k = right; k < nbOfRBs; k++) {
+					if (!Allocated[k]) {
+						for (int j = 0; j < users->size(); j++) {
+							if ((j != selectedUser) && !allocatedUser[j]
+									&& (metrics[k][selectedUser] < metrics[k][j])) {
+								break;
+							}
+							nbRBRight[i]++;
+						}
+					}
+				} //end right
+				for (int k = left; k >= 0; k--) {
+					if (!Allocated[k]) {
+						for (int j = 0; j < users->size(); j++) {
+							if ((j != selectedUser) && !allocatedUser[j]
+									&& (metrics[k][selectedUser] < metrics[k][j])) {
+								break;
+							}
+							nbRBLeft[i]++;
+						}
+					}
+				} //end left
+			} //end calculation of possible allocatedRB for each CQI
+			  //Choisir le CQI qui permet d'avoir le max allocated RB
+			for (int i = 0; i < bestMetrics.size(); i++) {
+				nbRB[i] = 1 + nbRBLeft[i] + nbRBRight[i];
+				if (nbRB[i] >= requiredPRBs[selectedUser]) {
+					selectedPRB = bestRBs[i];
+					selectedI = i;
+					break;
+				} else {
+					for (int j = 0; j < bestMetrics.size(); j++) {
+						if (nbRB[j] > nbRB[i])
+							break;
+					}
+					selectedPRB = bestRBs[i];
+					selectedI = i;
+					break;
+				}
+
+			}
+//			std::cout << "selected PRB" << selectedPRB << std::endl;
+			//fin choix CQI
+					//Allocation as RME scheduler
+					// not necessary to verify ! allocated and if it correspondto UE it is already done
+					// for to RBRight and RBLeft
+
+			scheduledUser = users->at(selectedUser);
+			scheduledUser->m_listOfAllocatedRBs.push_back(selectedPRB);
+			Allocated[selectedPRB] = true;
 			left = selectedPRB - 1;
 			right = selectedPRB + 1;
-			if (left >= 0 && Allocated[left] && right < nbOfRBs
-					&& Allocated[right])
-				break;
-			//Verify if left is not allocated & correspond to selectedUE
-			if (left >= 0 && !Allocated[left]) {
-				for (int j = 0; j < users->size(); j++) {
+			availableRBs--;
+			MAllocation[selectedPRB] = selectedUser;
+			while ((scheduledUser->m_listOfAllocatedRBs.size()
+					!= requiredPRBs[selectedUser])
+					&& (ContinueRight || ContinueLeft) && availableRBs > 0) {
 
-					if ((j != selectedUser) && !allocatedUser[j]
-							&& requiredPRBs[j] > 0
-							&& (metrics[left][selectedUser] < metrics[left][j])) {
-						ContinueLeft = false;
-					}
-				}
-			} else
-				ContinueLeft = false;
-
-			//Verify if left-1 is not allocated & correspond to selectedUE
-			if (left - 1 >= 0 && !Allocated[left - 1]) {
-				for (int j = 0; j < users->size(); j++) {
-
-					if ((j != selectedUser) && !allocatedUser[j]
-							&& requiredPRBs[j] > 0
-							&& (metrics[left - 1][selectedUser]
-									< metrics[left - 1][j])) {
-						ContinueNextLeft = false;
-					}
-				}
-			} else
-				ContinueNextLeft = false;
-
-			//Verify if right is not allocated & correspond to selectedUE
-			if (right < nbOfRBs && !Allocated[right]) {
-				//Verify if the best metric at right doesn't correspond to UE
-				for (int j = 0; j < users->size(); j++) {
-
-					if ((j != selectedUser) && !allocatedUser[j]
-							&& requiredPRBs[j] > 0
-							&& (metrics[right][selectedUser] < metrics[right][j])) {
-						ContinueRight = false;
-
-					}
-				}
-			} else
-				ContinueRight = false;
-
-			//Verify if right+1 is not allocated & correspond to selectedUE
-			if (right + 1 < nbOfRBs && !Allocated[right + 1]) {
-				//Verify if the best metric at right doesn't correspond to UE
-				for (int j = 0; j < users->size(); j++) {
-
-					if ((j != selectedUser) && !allocatedUser[j]
-							&& requiredPRBs[j] > 0
-							&& (metrics[right + 1][selectedUser]
-									< metrics[right + 1][j])) {
-						ContinueNextRight = false;
-					}
-				}
-			} else
-				ContinueNextRight = false;	//end right verification
-
-//if right and left not allocated
-			if (ContinueLeft && ContinueRight) {
-				//right > left
-				if (metrics[right][selectedUser]
-						> metrics[left][selectedUser]) {
-
-					reservedRbs.push_back(right);
-					//R+1> L
-					if (ContinueNextRight
-							&& metrics[right + 1][selectedUser]
-									>= metrics[left][selectedUser])
-						reservedRbs.push_back(right + 1);
-					else
-						reservedRbs.push_back(left);
-				}
-				//Left>Right
-				else if (metrics[right][selectedUser]
-						< metrics[left][selectedUser]) {
-					reservedRbs.push_back(left);
-					//left-1 > right
-					if (ContinueNextLeft
-							&& metrics[left - 1][selectedUser]
-									>= metrics[right][selectedUser])
-						reservedRbs.push_back(left - 1);
-					else
-						reservedRbs.push_back(right);
-				}
-				//left == right => compare left-1 and right+1
-				else {
-					//right Allocation
-					if (((ContinueNextRight && ContinueNextLeft)
-							&& (metrics[right + 1][selectedUser]
-									>= metrics[left - 1][selectedUser]))
-							|| (!ContinueNextLeft && ContinueNextRight)) {
-						reservedRbs.push_back(right);
-						reservedRbs.push_back(right + 1);
-					} else if (((ContinueNextRight && ContinueNextLeft)
-							&& (metrics[right + 1][selectedUser]
-									< metrics[left - 1][selectedUser]))
-							|| (ContinueNextLeft && !ContinueNextRight)) {
-						reservedRbs.push_back(left);
-						reservedRbs.push_back(left - 1);
-					}
-				}	//end left == right
-
-			}	//end right and left not allocated
-				//Continue right but not left
-			if (ContinueRight && !ContinueLeft) {
-				if (ContinueNextRight) {
-					reservedRbs.push_back(right);
-					reservedRbs.push_back(right + 1);
-				} else
-					reservedRbs.push_back(right);
-			}
-			//Continue Left but not right
-			if (ContinueLeft && !ContinueRight) {
-				if (ContinueNextLeft) {
-					reservedRbs.push_back(left);
-					reservedRbs.push_back(left - 1);
-				} else
-					reservedRbs.push_back(left);
-			}
-			// Allocate Reserved  RBs
-			std::vector<int>::iterator it;
-			for (it = reservedRbs.begin(); it != reservedRbs.end(); it++) {
-				std::cout << "iit " << *it << std::endl;
-				if (users->at(selectedUser)->m_listOfAllocatedRBs.size()
-						< requiredPRBs[selectedUser]) {
-					Allocated[*it] = true;
-					allocatedUser[selectedUser] = true;
+				if (right < (selectedPRB + nbRBRight[selectedI])) {
+					Allocated[right] = true;
 					users->at(selectedUser)->m_listOfAllocatedRBs.push_back(
-							*it);
-					MAllocation[*it] = selectedUser;
+							right);
+					MAllocation[right] = selectedUser;
+					right++;
 					availableRBs--;
-					GetPathLoss(users->at(selectedUser));
+//					std::cout << "right allocation" << std::endl;
 				} else
+					ContinueRight = false;
+				if (left > (selectedPRB - nbRBLeft[selectedI])) {
+					Allocated[left] = true;
+					MAllocation[left] = selectedUser;
+					users->at(selectedUser)->m_listOfAllocatedRBs.push_back(
+							left);
+					left--;
+					availableRBs--;
+//					std::cout << "left allocation" << std::endl;
+				} else
+					ContinueLeft = false;
+			}
+			unallocatedUsers --;
+		}		//end if selectedUser !=-1
+		else
+					//no more users to allocate
 					break;
-			}
-			reservedRbs.clear();
-		} else
-			break;
-	}				//end while
-					//Case unallocated RBs
+//				std::cout << "unallocatedUsers " << unallocatedUsers << std::endl;
+	}		//end while
 	std::cout << "all users are allocated and still availabale " << availableRBs
-			<< std::endl;
-	int i = 0;
+				<< std::endl;
+		int i = 0;
 
-	while (i < nbOfRBs && availableRBs < (nbOfRBs - 1)) {
-		if (!Allocated[i]) {
-			std::cout << "RB " << i << " is not yet allocated" << std::endl;
-			left = i - 1;
-			right = i + 1;
-			while (right < nbOfRBs && (!Allocated[right])) {
-				right++;
-			}
-
-			//case i =0
-			if (left == -1 && MAllocation[right] == -1) {
-				std::cout << "RB cn't be allocated" << std::endl;
-			} else if (left == -1) {
-				selectedUser = MAllocation[right];
-				int j = right - 1;
-				while (j >= 0) {
-					if (users->at(selectedUser)->m_listOfAllocatedRBs.size()
-							!= requiredPRBs[selectedUser]) {
-						Allocated[j] = true;
-						MAllocation[j] = selectedUser;
-						users->at(selectedUser)->m_listOfAllocatedRBs.push_back(
-								j);
-						std::cout << "allocated RB " << j << " to "
-								<< selectedUser << std::endl;
-						j--;
-						i++;
-						availableRBs--;
-					} else
-						break; //can't allocate RB
+		while (i < nbOfRBs && availableRBs < (nbOfRBs - 1)) {
+			if (!Allocated[i]) {
+				std::cout << "RB " << i << " is not yet allocated" << std::endl;
+				left = i - 1;
+				right = i + 1;
+				while (right < nbOfRBs && (!Allocated[right])) {
+					right++;
 				}
-			} //end cas i =0
-			  //case not allocated RBs are in the end of RBs
-			else if (right == nbOfRBs) {
-				selectedUser = MAllocation[left];
-				int j = i;
-				while (j < nbOfRBs) {
-					if (users->at(selectedUser)->m_listOfAllocatedRBs.size()
-							!= requiredPRBs[selectedUser]) {
-						Allocated[j] = true;
-						MAllocation[j] = selectedUser;
-						users->at(selectedUser)->m_listOfAllocatedRBs.push_back(
-								j);
-						std::cout << "allocated RB " << j << " to "
-								<< selectedUser << std::endl;
-						j++;
-						i++;
-						availableRBs--;
-					} else {
-						j = nbOfRBs;
-						i = nbOfRBs;
-						break;
 
-					}
-					//can't allocated RB
-				}
-			} //end case not allocated Rbs are in the end
-			  //case not allocated Rbs are between allocated UEs
-			else {
-				adjacentRightUser = MAllocation[right];
-				adjacentLeftUser = MAllocation[left];
-				/*M[left]>M[right]
-				 * * if adjacentLeft didn't reach its maximum so RB is allocated to adjacentLeft
-				 * * else
-				 * *** if adjacent Right didn't reach its maximum so RB is allocated to adjacent Right
-				 * ***else RB is not allocated
-				 *
-				 */
-				if (MAllocation[left] != -1) {
-					if (metrics[i][adjacentLeftUser]
-							>= metrics[i][adjacentRightUser]) {
-						if (users->at(adjacentLeftUser)->m_listOfAllocatedRBs.size()
-								< requiredPRBs[adjacentLeftUser]) {
-							selectedUser = adjacentLeftUser;
-							Allocated[i] = true;
-							MAllocation[i] = selectedUser;
+				//case i =0
+				if (left == -1 && MAllocation[right] == -1) {
+					std::cout << "RB cn't be allocated" << std::endl;
+				} else if (left == -1) {
+					selectedUser = MAllocation[right];
+					int j = right - 1;
+					while (j >= 0) {
+						if (users->at(selectedUser)->m_listOfAllocatedRBs.size()
+								!= requiredPRBs[selectedUser]) {
+							Allocated[j] = true;
+							MAllocation[j] = selectedUser;
 							users->at(selectedUser)->m_listOfAllocatedRBs.push_back(
-									i);
-							std::cout << "allocated RB " << i << " to "
+									j);
+							std::cout << "allocated RB " << j << " to "
 									<< selectedUser << std::endl;
-							availableRBs--;
-						}
-
-						else if ((users->at(adjacentRightUser)->m_listOfAllocatedRBs.size()
-								+ right - i)
-								<= requiredPRBs[adjacentLeftUser]) {
-							std::cout << "last to UE" << adjacentRightUser
-									<< " RB "
-									<< users->at(adjacentRightUser)->m_listOfAllocatedRBs.size()
-											+ right - i << std::endl;
-							selectedUser = adjacentRightUser;
-							Allocated[i] = true;
-							MAllocation[i] = selectedUser;
-							users->at(selectedUser)->m_listOfAllocatedRBs.push_back(
-									i);
-							std::cout << "allocated RB " << i << " to "
-									<< selectedUser << std::endl;
+							j--;
+							i++;
 							availableRBs--;
 						} else
-							std::cout << "RB " << i << " can't be allocated"
-									<< std::endl;
+							break; //can't allocate RB
 					}
+				} //end cas i =0
+				  //case not allocated RBs are in the end of RBs
+				else if (right == nbOfRBs) {
+					selectedUser = MAllocation[left];
+					int j = i;
+					while (j < nbOfRBs) {
+						if (users->at(selectedUser)->m_listOfAllocatedRBs.size()
+								!= requiredPRBs[selectedUser]) {
+							Allocated[j] = true;
+							MAllocation[j] = selectedUser;
+							users->at(selectedUser)->m_listOfAllocatedRBs.push_back(
+									j);
+							std::cout << "allocated RB " << j << " to "
+									<< selectedUser << std::endl;
+							j++;
+							i++;
+							availableRBs--;
+						} else {
+							j = nbOfRBs;
+							i = nbOfRBs;
+							break;
 
-					/*M[left]<M[right]
-					 * * if adjacentRight didn't reach its maximum so RB is allocated to adjacentRight
+						}
+						//can't allocated RB
+					}
+				} //end case not allocated Rbs are in the end
+				  //case not allocated Rbs are between allocated UEs
+				else {
+					adjacentRightUser = MAllocation[right];
+					adjacentLeftUser = MAllocation[left];
+					/*M[left]>M[right]
+					 * * if adjacentLeft didn't reach its maximum so RB is allocated to adjacentLeft
 					 * * else
-					 * *** if adjacent Leftt didn't reach its maximum so RB is allocated to adjacent Left
+					 * *** if adjacent Right didn't reach its maximum so RB is allocated to adjacent Right
 					 * ***else RB is not allocated
 					 *
 					 */
-					else {
-						if ((users->at(adjacentRightUser)->m_listOfAllocatedRBs.size()
-								+ right - i)
-								<= requiredPRBs[adjacentLeftUser]) {
-							std::cout << "last to UE" << adjacentRightUser
-									<< " RB "
-									<< users->at(adjacentRightUser)->m_listOfAllocatedRBs.size()
-											+ right - i << std::endl;
-							selectedUser = adjacentRightUser;
-							Allocated[i] = true;
-							MAllocation[i] = selectedUser;
-							users->at(selectedUser)->m_listOfAllocatedRBs.push_back(
-									i);
-							std::cout << "allocated RB " << i << " to "
-									<< selectedUser << std::endl;
-							availableRBs--;
+					if (MAllocation[left] != -1) {
+						if (metrics[i][adjacentLeftUser]
+								>= metrics[i][adjacentRightUser]) {
+							if (users->at(adjacentLeftUser)->m_listOfAllocatedRBs.size()
+									< requiredPRBs[adjacentLeftUser]) {
+								selectedUser = adjacentLeftUser;
+								Allocated[i] = true;
+								MAllocation[i] = selectedUser;
+								users->at(selectedUser)->m_listOfAllocatedRBs.push_back(
+										i);
+								std::cout << "allocated RB " << i << " to "
+										<< selectedUser << std::endl;
+								availableRBs--;
+							}
+
+							else if ((users->at(adjacentRightUser)->m_listOfAllocatedRBs.size()
+									+ right - i)
+									<= requiredPRBs[adjacentLeftUser]) {
+								std::cout << "last to UE" << adjacentRightUser
+										<< " RB "
+										<< users->at(adjacentRightUser)->m_listOfAllocatedRBs.size()
+												+ right - i << std::endl;
+								selectedUser = adjacentRightUser;
+								Allocated[i] = true;
+								MAllocation[i] = selectedUser;
+								users->at(selectedUser)->m_listOfAllocatedRBs.push_back(
+										i);
+								std::cout << "allocated RB " << i << " to "
+										<< selectedUser << std::endl;
+								availableRBs--;
+							} else
+								std::cout << "RB " << i << " can't be allocated"
+										<< std::endl;
 						}
 
-						else if (users->at(adjacentLeftUser)->m_listOfAllocatedRBs.size()
-								< requiredPRBs[adjacentLeftUser]) {
-							selectedUser = adjacentLeftUser;
-							Allocated[i] = true;
-							MAllocation[i] = selectedUser;
-							users->at(selectedUser)->m_listOfAllocatedRBs.push_back(
-									i);
-							std::cout << "allocated RB " << i << " to "
-									<< selectedUser << std::endl;
-							availableRBs--;
+						/*M[left]<M[right]
+						 * * if adjacentRight didn't reach its maximum so RB is allocated to adjacentRight
+						 * * else
+						 * *** if adjacent Leftt didn't reach its maximum so RB is allocated to adjacent Left
+						 * ***else RB is not allocated
+						 *
+						 */
+						else {
+							if ((users->at(adjacentRightUser)->m_listOfAllocatedRBs.size()
+									+ right - i)
+									<= requiredPRBs[adjacentLeftUser]) {
+								std::cout << "last to UE" << adjacentRightUser
+										<< " RB "
+										<< users->at(adjacentRightUser)->m_listOfAllocatedRBs.size()
+												+ right - i << std::endl;
+								selectedUser = adjacentRightUser;
+								Allocated[i] = true;
+								MAllocation[i] = selectedUser;
+								users->at(selectedUser)->m_listOfAllocatedRBs.push_back(
+										i);
+								std::cout << "allocated RB " << i << " to "
+										<< selectedUser << std::endl;
+								availableRBs--;
+							}
+
+							else if (users->at(adjacentLeftUser)->m_listOfAllocatedRBs.size()
+									< requiredPRBs[adjacentLeftUser]) {
+								selectedUser = adjacentLeftUser;
+								Allocated[i] = true;
+								MAllocation[i] = selectedUser;
+								users->at(selectedUser)->m_listOfAllocatedRBs.push_back(
+										i);
+								std::cout << "allocated RB " << i << " to "
+										<< selectedUser << std::endl;
+								availableRBs--;
+							}
 						}
-					}
-				} else
-					std::cout << "RB " << i << " can't be allocated"
-							<< std::endl;
+					} else
+						std::cout << "RB " << i << " can't be allocated"
+								<< std::endl;
+				}
 			}
+			i++;
 		}
-		i++;
-	}
-	std::cout << "MAllocation" << std::endl;
-	for (int i = 0; i < nbOfRBs; i++)
-		std::cout << MAllocation[i] << std::endl;
-	for (int j = 0; j < users->size(); j++) {
-		UserToSchedule* scheduledUser;
-		scheduledUser = users->at(j);
-		scheduledUser->m_transmittedData =
-				GetMacEntity()->GetAmcModule()->GetTBSizeFromMCS(
-						scheduledUser->m_selectedMCS,
-						scheduledUser->m_listOfAllocatedRBs.size()) / 8;
-#ifdef SCHEDULER_DEBUG
-		printf(
-				"Scheduled User = %d mcs = %d Required RB's = %d Allocated RB's= %d\n",
-				scheduledUser->m_userToSchedule->GetIDNetworkNode(),
-				scheduledUser->m_selectedMCS, requiredPRBs[j],
-				scheduledUser->m_listOfAllocatedRBs.size());
-		for (int i = 0; i < scheduledUser->m_listOfAllocatedRBs.size(); i++)
-			printf("%d ", scheduledUser->m_listOfAllocatedRBs.at(i));
-		printf("\n------------------\n");
-#endif
-		//Calculate power
-		if (scheduledUser->m_listOfAllocatedRBs.size() == 0)
-			m_power[j] += 0;
-		else
-			m_power[j] += CalculatePower(
-					users->at(j)->m_listOfAllocatedRBs.size(), scheduledUser);
 
-		std::cout << "Average power["
-				<< scheduledUser->m_userToSchedule->GetIDNetworkNode() << "]= "
-				<< m_power[j] << std::endl;
-		//RBs /user/TTI
-		std::cout << "RME NRbs of "
-				<< scheduledUser->m_userToSchedule->GetIDNetworkNode() << " = "
-				<< scheduledUser->m_listOfAllocatedRBs.size() << std::endl;
-		//number of scheduled users per TTI
-		if (scheduledUser->m_listOfAllocatedRBs.size() > 0)
-			nbrOfScheduledUsers++;
-	}
+		//Affichage
+		for (int i = 0; i < nbOfRBs; i++) {
+			std::cout << "Mallocation[" << i << "] =" << MAllocation[i]
+					<< std::endl;
+		}
 
 }
