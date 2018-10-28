@@ -13,13 +13,13 @@
 
 class CarrierByCarrierPacketScheduler : public UplinkPacketScheduler {
 public:
+	CarrierByCarrierPacketScheduler();
 	virtual ~CarrierByCarrierPacketScheduler();
 
 	virtual double ComputeSchedulingMetric (RadioBearer *bearer, double spectralEfficiency, int subChannel);
     virtual double ComputeSchedulingMetric (UserToSchedule* user, int subchannel);
-
 	virtual void RBsAllocation ();
 
 };
 
-#endif /* FME_UPLINK_PACKET_SCHEDULER_H_ */
+#endif /* CBC_UPLINK_PACKET_SCHEDULER_H_ */
