@@ -22,7 +22,7 @@
 #include "../../../flows/MacQueue.h"
 #include "../../../utility/eesm-effective-sinr.h"
 
-#define SCHEDULER_DEBUG
+//#define SCHEDULER_DEBUG
 
 CarrierByCarrierPacketScheduler::CarrierByCarrierPacketScheduler() {
 	SetMacEntity(0);
@@ -78,12 +78,20 @@ void CarrierByCarrierPacketScheduler::RBsAllocation() {
 	bool allocatedUser[users->size()];
 	int requiredPRBs[users->size()];
 	int lastScheduledUe;
+	int nbrOfScheduledUsers;
+	int unallocatedUsers; // No of users who remain unallocated
 	//Some initialization
-
+	nbrOfScheduledUsers = 0;
+	unallocatedUsers = users->size();
 	//allocatedUser = false;
 	for (int i = 0; i < users->size(); i++) {
 		allocatedUser[i] = false;
 	}
+	for (int i = 0; i < nbOfRBs; i++) {
+		Allocated[i] = false;
+		MAllocation[i] = -1;
+	}
+
 	//create a matrix of flow metrics
 	for (int i = 0; i < nbOfRBs; i++) {
 		for (int j = 0; j < users->size(); j++) {
@@ -130,34 +138,90 @@ void CarrierByCarrierPacketScheduler::RBsAllocation() {
 		std::cout << std::endl;
 	}
 #endif
-
+	for (int j = 0; j < users->size(); j++) {
+				if( requiredPRBs[j] == 0)
+					unallocatedUsers--;
+			}
 	//Start RB Allocation
-	for (int i = 0; i < nbOfRBs; i++) {
+	for (int i = 0; i < nbOfRBs && unallocatedUsers > 0; i++) {
 		selectedUe = -1;
 
 		bestMetric = (double) (-(1 << 30));
 		for (int j = 0; j < users->size(); j++) {
+			//Find best metric
 			if (!allocatedUser[j] && requiredPRBs[j] > 0) //only unallocated users requesting some RB's
 				if (bestMetric < metrics[i][j]) {
 					selectedUe = j;
 					bestMetric = metrics[i][j];
 				}
-		}
+					}
 		//initialize lastScheduledUe for the first RB
 		if (i == 0)
 			lastScheduledUe = selectedUe;
 		//Compare lastScheduledUE and the new one
 		if (lastScheduledUe != selectedUe) {
 			allocatedUser[lastScheduledUe] = true;
+
+			if (scheduledUser->m_listOfAllocatedRBs.size()
+					< requiredPRBs[lastScheduledUe])
+				unallocatedUsers--;
 			lastScheduledUe = selectedUe;
 		}
+
 		scheduledUser = users->at(selectedUe);
 		scheduledUser->m_listOfAllocatedRBs.push_back(i);
 		MAllocation[i] = selectedUe;
+		if (scheduledUser->m_listOfAllocatedRBs.size()
+				== requiredPRBs[selectedUe]) {
+			allocatedUser[selectedUe] = true;
+			unallocatedUsers--;
+		}
 	}
 	//Affichage
+#ifdef SCHEDULER_DEBUG
 	for (int i = 0; i < nbOfRBs; i++) {
 		std::cout << "Mallocation[" << i << "] =" << MAllocation[i]
 				<< std::endl;
+	}
+#endif
+
+//Calculate power
+	for (int j = 0; j < users->size(); j++) {
+		UserToSchedule* scheduledUser1;
+		scheduledUser1 = users->at(j);
+		scheduledUser1->m_transmittedData =
+				GetMacEntity()->GetAmcModule()->GetTBSizeFromMCS(
+						scheduledUser1->m_selectedMCS,
+						scheduledUser1->m_listOfAllocatedRBs.size()) / 8;
+
+#ifdef SCHEDULER_DEBUG
+		printf(
+				"Scheduled User = %d mcs = %d Required RB's = %d Allocated RB's= %d\n",
+				scheduledUser1->m_userToSchedule->GetIDNetworkNode(),
+				scheduledUser1->m_selectedMCS, requiredPRBs[j],
+				scheduledUser1->m_listOfAllocatedRBs.size());
+		for (int i = 0; i < scheduledUser1->m_listOfAllocatedRBs.size(); i++)
+			printf("%d ", scheduledUser1->m_listOfAllocatedRBs.at(i));
+
+#endif
+		if (scheduledUser1->m_listOfAllocatedRBs.size() == 0)
+			m_power[j] += 0;
+		else
+			m_power[j] += CalculatePower(
+					scheduledUser1->m_listOfAllocatedRBs.size(),
+					scheduledUser1);
+#ifdef SCHEDULER_DEBUG
+		std::cout << "power["
+				<< scheduledUser1->m_userToSchedule->GetIDNetworkNode() << "]= "
+				<< m_power[j] << std::endl;
+		//RBs /user/TTI
+		std::cout << "CBC NRbs of "
+				<< scheduledUser1->m_userToSchedule->GetIDNetworkNode() << " = "
+				<< scheduledUser1->m_listOfAllocatedRBs.size() << std::endl;
+		printf("\n------------------\n");
+#endif
+		//number of scheduled users per TTI
+		if (scheduledUser1->m_listOfAllocatedRBs.size() > 0)
+			nbrOfScheduledUsers++;
 	}
 } //end RB Allocation
