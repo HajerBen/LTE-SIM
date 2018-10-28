@@ -36,7 +36,7 @@
 #include "../../../flows/MacQueue.h"
 #include "../../../utility/eesm-effective-sinr.h"
 
-#define SCHEDULER_DEBUG
+//#define SCHEDULER_DEBUG
 
 EnhancedUplinkPacketScheduler::EnhancedUplinkPacketScheduler() {
 	SetMacEntity(0);
@@ -60,9 +60,7 @@ double EnhancedUplinkPacketScheduler::ComputeSchedulingMetric(
 	int channelCondition = user->m_channelContition.at(subchannel);
 	double spectralEfficiency = GetMacEntity()->GetAmcModule()->GetSinrFromCQI(
 			channelCondition);
-
 	metric = spectralEfficiency * 180000;
-
 	return metric;
 }
 
@@ -82,7 +80,6 @@ void EnhancedUplinkPacketScheduler::RBsAllocation() {
 	UserToSchedule* scheduledUser;
 	int nbOfRBs =
 			GetMacEntity()->GetDevice()->GetPhy()->GetBandwidthManager()->GetUlSubChannels().size();
-
 	int availableRBs;     // No of RB's not allocated
 	int selectedUser;     // user to be selected for allocation
 	int selectedPRB;      // PRB to be selected for allocation
@@ -98,7 +95,10 @@ void EnhancedUplinkPacketScheduler::RBsAllocation() {
 	bool StartRight, StartLeft;
 	int MAllocation[nbOfRBs];
 	int unallocatedUsers;
+	int nbrOfScheduledUsers;
+
 	//some initialization
+	nbrOfScheduledUsers = 0;
 	availableRBs = nbOfRBs;
 	ContinueRight = ContinueLeft = false;
 	newUe = lastUe = -1;
@@ -107,7 +107,6 @@ void EnhancedUplinkPacketScheduler::RBsAllocation() {
 		MAllocation[i] = -1;
 		Allocated[i] = false;
 	}
-
 	unallocatedUsers = users->size();
 	//allocatedUser = false; finishAllocation = false
 	for (int i = 0; i < users->size(); i++) {
@@ -133,7 +132,6 @@ void EnhancedUplinkPacketScheduler::RBsAllocation() {
 		}
 
 		double effectiveSinr = GetEesmEffectiveSinr(sinrs);
-
 		int mcs = GetMacEntity()->GetAmcModule()->GetMCSFromCQI(
 				GetMacEntity()->GetAmcModule()->GetCQIFromSinr(effectiveSinr));
 		scheduledUser->m_selectedMCS = mcs;
@@ -143,21 +141,22 @@ void EnhancedUplinkPacketScheduler::RBsAllocation() {
 								1) / 8));
 #ifdef SCHEDULER_DEBUG
 		cout << ":  EffSINR = " << effectiveSinr << "  MCS = " << mcs
-				<< " Required RBs " << requiredPRBs[j] << "\n";
+		<< " Required RBs " << requiredPRBs[j] << "\n";
 #endif
 	}
 #ifdef SCHEDULER_DEBUG
 	std::cout << " available RBs " << nbOfRBs << ", users " << users->size()
-			<< std::endl;
+	<< std::endl;
 	for (int ii = 0; ii < users->size(); ii++) {
 		std::cout << "Metrics for user "
-				<< users->at(ii)->m_userToSchedule->GetIDNetworkNode() << "\n";
+		<< users->at(ii)->m_userToSchedule->GetIDNetworkNode() << "\n";
 		for (int jj = 0; jj < nbOfRBs; jj++) {
 			//std::cout  << setw(3) << metrics[jj][ii]/1000 << " ";
 			printf("%3d  ", (int) (metrics[jj][ii] / 1000.0));
 		}
 		std::cout << std::endl;
 	}
+	std::cout << "now= " << Simulator::Init()->Now() << std::endl;
 #endif
 	//RBs Allocation
 	while (availableRBs > 0 && unallocatedUsers > 0) //
@@ -166,9 +165,8 @@ void EnhancedUplinkPacketScheduler::RBsAllocation() {
 		selectedPRB = -1;
 		selectedUser = -1;
 		Verify = true;
-
 		bestMetric = (double) (-(1 << 30));
-		std::cout << "now= " << Simulator::Init()->Now() << std::endl;
+
 		for (int i = 0; i < nbOfRBs; i++) {
 			if (!Allocated[i]) {	//check only unallocated PRBs
 				for (int j = 0; j < users->size(); j++) {
@@ -182,9 +180,11 @@ void EnhancedUplinkPacketScheduler::RBsAllocation() {
 				}
 			}
 		}
+#ifdef SCHEDULER_DEBUG
 		std::cout << "**bestMetric  = " << bestMetric / 1000.0
-				<< " selected prb " << selectedPRB << " selected User "
-				<< selectedUser << std::endl;
+		<< " selected prb " << selectedPRB << " selected User "
+		<< selectedUser << std::endl;
+#endif
 		//Step 2
 		// Now start allocating for the selected user at the selected PRB
 		if (selectedUser != -1) {
@@ -215,7 +215,9 @@ void EnhancedUplinkPacketScheduler::RBsAllocation() {
 				StartRight = true;
 				lastUe = selectedUser;
 				newUe = selectedUser;
+#ifdef SCHEDULER_DEBUG
 				std::cout << "start Right" << std::endl;
+#endif
 			} else if ((left >= 0) && (!Allocated[left])
 					&& (((right < nbOfRBs)
 							&& (metrics[left][selectedUser]
@@ -226,11 +228,12 @@ void EnhancedUplinkPacketScheduler::RBsAllocation() {
 				StartLeft = true;
 				lastUe = selectedUser;
 				newUe = selectedUser;
+#ifdef SCHEDULER_DEBUG
 				std::cout << "start Left" << std::endl;
+#endif
 			}
 			//end step 3 and 4
 			//step 5
-			std::cout << "step 5" << std::endl;
 			while ((scheduledUser->m_listOfAllocatedRBs.size()
 					!= requiredPRBs[selectedUser])
 					&& (ContinueRight || ContinueLeft) && availableRBs > 0) {
@@ -239,25 +242,22 @@ void EnhancedUplinkPacketScheduler::RBsAllocation() {
 				while ((availableRBs > 0) && (!allocatedUser[newUe])
 						&& (right < nbOfRBs) && (!Allocated[right])
 						&& ContinueRight) {
+#ifdef SCHEDULER_DEBUG
 					std::cout << "Continue right for UE " << lastUe
-							<< std::endl;
+					<< std::endl;
+#endif
 					//verify if UE has the best metric at this RB
 					for (int j = 0; j < users->size(); j++) {
 						if ((j != lastUe) && !allocatedUser[j]
+								&& requiredPRBs[j] > 0
 								&& (metrics[right][newUe] < metrics[right][j])) {
 							//the best metric at right doesn't correspond to UE, so RB will be allocated to the new Ue
 							allocatedUser[lastUe] = true;
 							newUe = j;
-
 							unallocatedUsers--;
-							std::cout << "unallocated Users = "
-									<< unallocatedUsers << std::endl;
 						}
 					}
-					if (lastUe != newUe)
-						std::cout << "Last RB right = " << right - 1
-								<< " for UE " << lastUe << "new Ue " << newUe
-								<< std::endl;
+
 					lastUe = newUe;
 					Allocated[right] = true;
 					MAllocation[right] = newUe;
@@ -286,8 +286,6 @@ void EnhancedUplinkPacketScheduler::RBsAllocation() {
 							allocatedUser[selectedUser] = false;
 							unallocatedUsers++;	//as if selected User not yet allocated
 						}
-						std::cout << "unallocated Users = " << unallocatedUsers
-								<< std::endl;
 					}
 					/*Stop allocation for selected User:
 					 * when selected user reach its required RBs
@@ -301,8 +299,6 @@ void EnhancedUplinkPacketScheduler::RBsAllocation() {
 						allocatedUser[newUe] = true;
 						unallocatedUsers--;
 						ContinueRight = false;
-						std::cout << "unallocated Users = " << unallocatedUsers
-								<< std::endl;
 					}
 
 					else if (newUe == selectedUser
@@ -312,12 +308,10 @@ void EnhancedUplinkPacketScheduler::RBsAllocation() {
 						if (StartLeft) {
 							allocatedUser[newUe] = true;
 							unallocatedUsers--;
-									std::cout << "unallocated Users = "
-									<< unallocatedUsers << std::endl;
 						}
 						//Stop right allocation but continue at left side
 						else if (StartRight && left >= 0 && !Allocated[left]) {
-								ContinueLeft = true;
+							ContinueLeft = true;
 						}
 					}
 
@@ -325,18 +319,18 @@ void EnhancedUplinkPacketScheduler::RBsAllocation() {
 				//Left Allocation
 				while ((availableRBs > 0) && (!allocatedUser[newUe])
 						&& (left >= 0) && (!Allocated[left]) && ContinueLeft) {
+#ifdef SCHEDULER_DEBUG
 					std::cout << "Continue Left for UE " << lastUe << std::endl;
+#endif
 					//verify if UE has the best metric at this RB
 					for (int j = 0; j < users->size(); j++) {
 						if ((j != lastUe) && !allocatedUser[j]
+								&& requiredPRBs[j] > 0
 								&& (metrics[left][newUe] < metrics[left][j])) {
 							//the best metric at right doesn't correspond to UE, so RB will be allocated to the new Ue
 							allocatedUser[lastUe] = true;
 							newUe = j;
-
 							unallocatedUsers--;
-							std::cout << "unallocated Users = "
-									<< unallocatedUsers << std::endl;
 						}
 					}
 					/*if (lastUe != newUe)
@@ -371,8 +365,6 @@ void EnhancedUplinkPacketScheduler::RBsAllocation() {
 							allocatedUser[selectedUser] = false;
 							unallocatedUsers++;	//as if selected User not yet allocated
 						}
-						std::cout << "unallocated Users = " << unallocatedUsers
-								<< std::endl;
 					}
 					/*Stop allocation for selected User:
 					 ** when selected user reach its required RBs
@@ -391,8 +383,6 @@ void EnhancedUplinkPacketScheduler::RBsAllocation() {
 						allocatedUser[newUe] = true;
 						unallocatedUsers--;
 						ContinueLeft = false;
-						std::cout << "unallocated Users = " << unallocatedUsers
-								<< std::endl;
 					}
 
 					else if (newUe == selectedUser
@@ -402,8 +392,6 @@ void EnhancedUplinkPacketScheduler::RBsAllocation() {
 						if (StartRight) {
 							allocatedUser[newUe] = true;
 							unallocatedUsers--;
-							std::cout << "unallocated Users = "
-									<< unallocatedUsers << std::endl;
 						}
 						//Stop left allocation but continue at right side
 						else if (StartLeft && right < nbOfRBs
@@ -422,41 +410,50 @@ void EnhancedUplinkPacketScheduler::RBsAllocation() {
 
 	}			//end while available RBs > 0
 	//Affichage
+#ifdef SCHEDULER_DEBUG
 	for (int i = 0; i < nbOfRBs; i++) {
 		std::cout << "Mallocation[" << i << "] =" << MAllocation[i]
-				<< std::endl;
+		<< std::endl;
 	}
-
+#endif
+	UserToSchedule* scheduledUser1;
 //Calculate power
 	for (int j = 0; j < users->size(); j++) {
-		UserToSchedule* scheduledUser;
-		scheduledUser = users->at(j);
-		scheduledUser->m_transmittedData =
+
+		scheduledUser1 = users->at(j);
+		scheduledUser1->m_transmittedData =
 				GetMacEntity()->GetAmcModule()->GetTBSizeFromMCS(
-						scheduledUser->m_selectedMCS,
-						scheduledUser->m_listOfAllocatedRBs.size()) / 8;
+						scheduledUser1->m_selectedMCS,
+						scheduledUser1->m_listOfAllocatedRBs.size()) / 8;
+
 #ifdef SCHEDULER_DEBUG
 		printf(
 				"Scheduled User = %d mcs = %d Required RB's = %d Allocated RB's= %d\n",
-				scheduledUser->m_userToSchedule->GetIDNetworkNode(),
-				scheduledUser->m_selectedMCS, requiredPRBs[j],
-				scheduledUser->m_listOfAllocatedRBs.size());
-		for (int i = 0; i < scheduledUser->m_listOfAllocatedRBs.size(); i++)
-			printf("%d ", scheduledUser->m_listOfAllocatedRBs.at(i));
+				scheduledUser1->m_userToSchedule->GetIDNetworkNode(),
+				scheduledUser1->m_selectedMCS, requiredPRBs[j],
+				scheduledUser1->m_listOfAllocatedRBs.size());
+		for (int i = 0; i < scheduledUser1->m_listOfAllocatedRBs.size(); i++)
+		printf("%d ", scheduledUser1->m_listOfAllocatedRBs.at(i));
+
+#endif
+		if (scheduledUser1->m_listOfAllocatedRBs.size() == 0)
+			m_power[j] += 0;
+		else
+			m_power[j] += CalculatePower(
+					scheduledUser1->m_listOfAllocatedRBs.size(),
+					scheduledUser1);
+#ifdef SCHEDULER_DEBUG
+		std::cout << "power["
+		<< scheduledUser1->m_userToSchedule->GetIDNetworkNode() << "]= "
+		<< m_power[j] << std::endl;
+		//RBs /user/TTI
+		std::cout << "FME NRbs of "
+		<< scheduledUser1->m_userToSchedule->GetIDNetworkNode() << " = "
+		<< scheduledUser1->m_listOfAllocatedRBs.size() << std::endl;
 		printf("\n------------------\n");
 #endif
-		if (Simulator::Init()->Now() == 0.001)
-			m_power[j] = 0;
-		m_power[j] += CalculatePower(users->at(j)->m_listOfAllocatedRBs.size(),
-				scheduledUser);
-
-		std::cout << "power["
-				<< scheduledUser->m_userToSchedule->GetIDNetworkNode() << "]= "
-				<< m_power[j] << std::endl;
-
-		std::cout << "FME NRbs of "
-				<< scheduledUser->m_userToSchedule->GetIDNetworkNode() << " = "
-				<< m_NRBs[scheduledUser->m_userToSchedule->GetIDNetworkNode()]
-				<< std::endl;
+		//number of scheduled users per TTI
+		if (scheduledUser1->m_listOfAllocatedRBs.size() > 0)
+			nbrOfScheduledUsers++;
 	}
 } //end RB Allocation
