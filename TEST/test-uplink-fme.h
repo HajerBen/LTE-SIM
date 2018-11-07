@@ -55,7 +55,7 @@ static void TestUplinkFME ()
   Cell *cell = new Cell (0, 1, 0.35, 0, 0);
   LteChannel *dlCh = new LteChannel ();
   LteChannel *ulCh = new LteChannel ();
-  BandwidthManager* spectrum = new BandwidthManager (3, 3, 0, 0);
+  BandwidthManager* spectrum = new BandwidthManager (1.4, 1.4, 0, 0);
 
   //Create ENodeB
   ENodeB* enb = new ENodeB (1, cell);
@@ -68,7 +68,7 @@ static void TestUplinkFME ()
   ulCh->AddDevice (enb);
 
  
-  int nbUEs = 10;
+  int nbUEs = 3;
 
   int idUe = 100;
 

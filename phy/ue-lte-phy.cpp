@@ -41,6 +41,7 @@
 #include "enb-lte-phy.h"
 #include "../utility/ComputePathLoss.h"
 
+
 /*
  * Noise is computed as follows:
  *  - noise figure = 2.5
@@ -50,6 +51,7 @@
  *  noise_db = noise figure + n0 + 10log10 (180000) - 30 = -148.95
  */
 #define NOISE -148.95
+//#define TEST_DEVICE_ON_CHANNEL
 
 UeLtePhy::UeLtePhy()
 {

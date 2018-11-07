@@ -39,13 +39,13 @@
 #include "../componentManagers/FlowsManager.h"
 
 static void TestUplink(double radius, int nbUe, int sched_Type, int stopTime,
-		int nbVideo, int nbCBR, int videoBitRate, double maxDelay)
+		int nbVideo, int nbCBR, int nbBE, int videoBitRate, double maxDelay,double bandwidth)
 		//int frame_struct
 
 		{
 
 	srand(time(NULL));
-	int startTime = 0.01; //s
+	int startTime = 0.01;
 
 	// CREATE COMPONENT MANAGERS
 	Simulator *simulator = Simulator::Init();
@@ -53,11 +53,16 @@ static void TestUplink(double radius, int nbUe, int sched_Type, int stopTime,
 	NetworkManager* networkManager = NetworkManager::Init();
 	FlowsManager* flowsManager = FlowsManager::Init();
 
-	//Create devices
-	Cell *cell = new Cell(0, 1, 0.35, 0, 0);
+	//Create cell
+	Cell *cell = new Cell(0, radius, 0.35, 0, 0);//Cell(idCell,radius,minDistance,x,y)
 	LteChannel *dlCh = new LteChannel();
 	LteChannel *ulCh = new LteChannel();
-	BandwidthManager* spectrum = new BandwidthManager(3, 3, 0, 0);
+	networkManager->GetCellContainer()->push_back(cell);
+	BandwidthManager* spectrum = new BandwidthManager(bandwidth, bandwidth, 0, 0);
+
+	//Create GW
+	Gateway *gw = new Gateway();
+	networkManager->GetGatewayContainer()->push_back(gw);
 
 	//SET SCHEDULING ALLOCATION SCHEME
 	ENodeB::ULSchedulerType uplink_scheduler_type;
@@ -75,13 +80,22 @@ static void TestUplink(double radius, int nbUe, int sched_Type, int stopTime,
 		std::cout << "Scheduler RR " << std::endl;
 		break;
 	case 4:
-		uplink_scheduler_type = ENodeB::ULScheduler_TYPE_Recursive_Maximum_Expansion;
+		uplink_scheduler_type =
+				ENodeB::ULScheduler_TYPE_Recursive_Maximum_Expansion;
 		std::cout << "Scheduler RME " << std::endl;
 		break;
 	case 5:
-			uplink_scheduler_type = ENodeB::ULScheduler_TYPE_Carrier_By_Carrier;;
-			std::cout << "Scheduler Carrier By Carrier " << std::endl;
-			break;
+		uplink_scheduler_type = ENodeB::ULScheduler_TYPE_Carrier_By_Carrier;
+		std::cout << "Scheduler Carrier By Carrier " << std::endl;
+		break;
+	case 6:
+		uplink_scheduler_type = ENodeB::ULScheduler_TYPE_MYSCHEDULER;
+		std::cout << "My Scheduler " << std::endl;
+		break;
+	case 7:
+		uplink_scheduler_type = ENodeB::ULSCHEDULER_TEST;
+				std::cout << "scheduler test " << std::endl;
+				break;
 	default:
 		uplink_scheduler_type = ENodeB::ULScheduler_TYPE_FME;
 		break;
@@ -96,6 +110,7 @@ static void TestUplink(double radius, int nbUe, int sched_Type, int stopTime,
 	enb->SetDLScheduler(ENodeB::DLScheduler_TYPE_PROPORTIONAL_FAIR);
 	networkManager->GetENodeBContainer()->push_back(enb);
 	ulCh->AddDevice(enb);
+
 	// SET FRAME STRUCTURE
 	/*  FrameManager::FrameStructure frame_structure;
 	 switch (frame_struct)
@@ -115,7 +130,8 @@ static void TestUplink(double radius, int nbUe, int sched_Type, int stopTime,
 	//Define Application Container
 	TraceBased VideoApplication;
 	CBR CBRApplication;
-	int voipApplication = 0;
+	InfiniteBuffer BEApplication;
+	int beApplication = 0;
 	int videoApplication = 0;
 	int cbrApplication = 0;
 	int idUe = 100;
@@ -127,8 +143,9 @@ static void TestUplink(double radius, int nbUe, int sched_Type, int stopTime,
 	for (int i = 0; i < nbUe; i++) {
 		//ue's random position
 //	  int maxXY = cell->GetRadius () * 1000;
-		double posX = (double) (rand() % 1000); //200;
-		double posY = (double) (rand() % 1000); //200;
+		int distance = 200;
+		double posX = (double)(rand() % 1000);
+		double posY = (double) (rand() % 1000);
 		double speedDirection = (double) (rand() % 360) * ((2 * 3.14) / 360);
 		double speed = 30;
 
@@ -138,49 +155,55 @@ static void TestUplink(double radius, int nbUe, int sched_Type, int stopTime,
 				speedDirection, cell, enb, 0, //handover false!
 				Mobility::CONSTANT_POSITION);
 
-		MacroCellUrbanAreaChannelRealization* c_dl =
-				new MacroCellUrbanAreaChannelRealization(enb, ue);
+		ue->GetPhy()->SetDlChannel(dlCh);
+		ue->GetPhy()->SetUlChannel(ulCh);
+		ue->GetPhy()->GetDlChannel()->AddDevice(ue);
+
+		WidebandCqiEesmErrorModel *errorModel = new WidebandCqiEesmErrorModel();
+		ue->GetPhy()->SetErrorModel(errorModel);
+		networkManager->GetUserEquipmentContainer()->push_back(ue);
+		//register ue to the enb
+		enb->RegisterUserEquipment(ue);
+		//define the channel realization
+		MacroCellUrbanAreaChannelRealization* c_dl = new MacroCellUrbanAreaChannelRealization(enb, ue);
 		enb->GetPhy()->GetDlChannel()->GetPropagationLossModel()->AddChannelRealization(
 				c_dl);
-		MacroCellUrbanAreaChannelRealization* c_ul =
-				new MacroCellUrbanAreaChannelRealization(ue, enb);
+		MacroCellUrbanAreaChannelRealization* c_ul = new MacroCellUrbanAreaChannelRealization(ue, enb);
 		enb->GetPhy()->GetUlChannel()->GetPropagationLossModel()->AddChannelRealization(
 				c_ul);
 
-		ue->GetPhy()->SetDlChannel(dlCh);
-		ue->GetPhy()->SetUlChannel(ulCh);
 
-		ue->GetPhy()->GetDlChannel()->AddDevice(ue);
-
-		enb->RegisterUserEquipment(ue);
 
 		FullbandCqiManager *cqiManager = new FullbandCqiManager();
 		cqiManager->SetCqiReportingMode(CqiManager::PERIODIC);
 		cqiManager->SetReportingInterval(1);
 		cqiManager->SetDevice(ue);
 		ue->SetCqiManager(cqiManager);
-
 		// *** cbr application
+		//Créer des applcation avec différents délais et IAT
+
+		int delay = rand() % 600 + 0.01 ;
+		int IAT = rand() % 60 + 0.01;
+		int size = rand() % 1000 + 1;
 		for (int j = 0; j < nbCBR; j++) {
 			//Create an Application
 			QoSParameters *qos = new QoSParameters();
-			qos->SetMaxDelay(0.1);
-
+			qos->SetMaxDelay(delay);
 			CBR *cbrApp = new CBR;
 			// create application
 			cbrApp->SetApplicationID(applicationID);
 			cbrApp->SetSource(ue);
-			cbrApp->SetDestination(enb);
+			cbrApp->SetDestination(gw);
 			cbrApp->SetSourcePort(sourcePort);
 			cbrApp->SetDestinationPort(destinationPort);
 			cbrApp->SetStartTime(startTime);
 			cbrApp->SetStopTime(stopTime);
-			cbrApp->SetInterval(0.008);
-			cbrApp->SetSize(500);
+			cbrApp->SetInterval(IAT);
+			cbrApp->SetSize(size);
 			cbrApp->SetQoSParameters(qos);
 
 			ClassifierParameters *cp = new ClassifierParameters(
-					ue->GetIDNetworkNode(), enb->GetIDNetworkNode(), sourcePort,
+					ue->GetIDNetworkNode(), gw->GetIDNetworkNode(), sourcePort,
 					destinationPort,
 					TransportProtocol::TRANSPORT_PROTOCOL_TYPE_UDP);
 			cbrApp->SetClassifierParameters(cp);
@@ -192,6 +215,7 @@ static void TestUplink(double radius, int nbUe, int sched_Type, int stopTime,
 			applicationID++;
 			cbrApplication++;
 		}
+
 		// create application
 		// *** video application
 		for (int j = 0; j < nbVideo; j++) {
@@ -246,7 +270,7 @@ static void TestUplink(double radius, int nbUe, int sched_Type, int stopTime,
 			VideoApplication.SetQoSParameters(qosVideo);
 			//create classifier parameters
 			ClassifierParameters *cp = new ClassifierParameters(
-					ue->GetIDNetworkNode(), enb->GetIDNetworkNode(), sourcePort,
+					ue->GetIDNetworkNode(), gw->GetIDNetworkNode(), sourcePort,
 					destinationPort,
 					TransportProtocol::TRANSPORT_PROTOCOL_TYPE_UDP);
 			VideoApplication.SetClassifierParameters(cp);
@@ -258,6 +282,35 @@ static void TestUplink(double radius, int nbUe, int sched_Type, int stopTime,
 			applicationID++;
 			sourcePort++;
 
+		}
+
+		// *** be application
+		for (int j = 0; j < nbBE; j++) {
+			// create application
+			BEApplication.SetSource(ue);
+			BEApplication.SetDestination(gw);
+			BEApplication.SetApplicationID(applicationID);
+			BEApplication.SetStartTime(startTime);
+			BEApplication.SetStopTime(stopTime);
+
+			// create qos parameters
+			QoSParameters *qosParameters = new QoSParameters();
+			BEApplication.SetQoSParameters(qosParameters);
+
+			//create classifier parameters
+			ClassifierParameters *cp = new ClassifierParameters(
+					 ue->GetIDNetworkNode(),gw->GetIDNetworkNode(), sourcePort,
+					destinationPort,
+					TransportProtocol::TRANSPORT_PROTOCOL_TYPE_UDP);
+			BEApplication.SetClassifierParameters(cp);
+
+			std::cout << "CREATED BE APPLICATION, ID " << applicationID
+					<< std::endl;
+
+			//update counter
+			destinationPort++;
+			applicationID++;
+			sourcePort++;
 		}
 		idUe++;
 		std::cout << Simulator::Init()->Now() << std::endl;

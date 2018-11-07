@@ -124,10 +124,11 @@ void SchedulerTest::RBsAllocation() {
 	}
 	int requiredPRBs[users->size()]={5,5,7,7};
 int I = 0;
-int metric[nbOfRBs* users->size()]={3353,3353,2737,1560,2737,2037,3837,3353,3353,2737,3353,3353,3353,3353,2737,
-		2563,2737,1560,1560,2737,2563,2737,2737,2037,2037,2737,2037,1560,2037,2037,
-		2037,2737,2737,-468,2737,2737,3837,3353,2737,3837,3353,3353,2737,2037,2563,
-		3353,406,3353,3353,3837,3837,2737,3837,2737,1560,3353,3353,3353,3837,2737
+int metric[nbOfRBs* users->size()]={2737,3353,1560,3353,1560,4224,3353,3353,2037,2737,1560,3837,2737,3353,2563,
+			3353,2037,3353,3837,2737,2737,3353,2737,3353,2737,2037,3353,2737,3353,3353,
+				3353,3353,2037,3353,1560,3353,3353,3353,2563,3837,3353,2563,3353,3353,2737,
+			3353,3353,406,3837,2737,3353,2737,2737,3353,2737,3837,2737,2037,3353,406,
+				-833,851,1560,851,1560,851,1560,1355,406,1560,406,851,406,406,851
 };
 	//create a matrix of flow metrics
 	for (int j = 0; j < users->size(); j++){
@@ -516,14 +517,14 @@ int metric[nbOfRBs* users->size()]={3353,3353,2737,1560,2737,2037,3837,3353,3353
 	#endif
 			//Calculate power
 			if (scheduledUser->m_listOfAllocatedRBs.size() == 0)
-				m_power[j] += 0;
+				scheduledUser->m_power += 0;
 			else
-				m_power[j] += CalculatePower(
+				scheduledUser->m_power += CalculatePower(
 						users->at(j)->m_listOfAllocatedRBs.size(), scheduledUser);
 	#ifdef SCHEDULER_DEBUG
 			std::cout << "power["
 			<< scheduledUser->m_userToSchedule->GetIDNetworkNode() << "]= "
-			<< m_power[j] << std::endl;
+			<< scheduledUser->m_power << std::endl;
 	//RBs /user/TTI
 			std::cout << "My Scheduler NRbs of "
 			<< scheduledUser->m_userToSchedule->GetIDNetworkNode() << " = "

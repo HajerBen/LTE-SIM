@@ -61,7 +61,7 @@ public:
 	IsIndoor (void);
 
 	//KBA Add Power
-	void SetPower (void);
+	void SetPower (double power);
 	double GetPower (void);
 	//END KBA
 	//Debug

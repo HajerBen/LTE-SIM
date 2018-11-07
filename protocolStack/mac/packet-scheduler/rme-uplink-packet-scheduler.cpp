@@ -45,7 +45,7 @@
 #include "../../../utility/eesm-effective-sinr.h"
 
 //#define SCHEDULER_DEBUG
-
+//#define Allocation
 RecursiveMaximumExpansion::RecursiveMaximumExpansion() {
 	SetMacEntity(0);
 	CreateUsersToSchedule();
@@ -80,7 +80,7 @@ void RecursiveMaximumExpansion::RBsAllocation() {
 	 * "Channel-aware scheduling algorithms for SC-FDMA in LTE uplink",  in Proc. PIMRC 2008
 	 *
 	 */
-#ifdef SCHEDULER_DEBUG
+#ifdef Allocation
 	std::cout << " ---- UL RBs Allocation(rme)";
 #endif
 
@@ -137,7 +137,7 @@ void RecursiveMaximumExpansion::RBsAllocation() {
 		for (std::vector<int>::iterator c =
 				scheduledUser->m_channelContition.begin();
 				c != scheduledUser->m_channelContition.end(); c++) {
-			//cout << *c <<" ";
+			//cout << " CQI " << *c << " ";
 			sinrs.push_back(GetMacEntity()->GetAmcModule()->GetSinrFromCQI(*c));
 		}
 
@@ -156,7 +156,7 @@ void RecursiveMaximumExpansion::RBsAllocation() {
 #endif
 	}
 
-#ifdef SCHEDULER_DEBUG
+#ifdef Allocation
 	std::cout << " available RBs " << nbOfRBs << ", users " << users->size()
 	<< std::endl;
 	for (int ii = 0; ii < users->size(); ii++) {
@@ -197,7 +197,7 @@ void RecursiveMaximumExpansion::RBsAllocation() {
 
 			}
 		}
-#ifdef SCHEDULER_DEBUG
+#ifdef Allocation
 		std::cout << "**bestMetric  = " << bestMetric / 1000.0
 		<< " selected prb " << selectedPRB << " selected User "
 		<< selectedUser << std::endl;
@@ -270,12 +270,14 @@ void RecursiveMaximumExpansion::RBsAllocation() {
 		else
 			//no more users to allocate
 			break;
-		//	std::cout << "unallocatedUsers " << unallocatedUsers << std::endl;
+#ifdef Allocation
+		std::cout << "unallocatedUsers " << unallocatedUsers << std::endl;
+#endif
 	} //end While
 
 	/*while (availableRBs > 0 ){*/
 	//Case unallocated RBs
-#ifdef SCHEDULER_DEBUG
+#ifdef Allocation
 	std::cout << "all users are allocated and still availabale " << availableRBs
 	<< std::endl;
 #endif
@@ -283,7 +285,7 @@ void RecursiveMaximumExpansion::RBsAllocation() {
 
 	while (i < nbOfRBs && availableRBs < (nbOfRBs - 1)) {
 		if (!Allocated[i]) {
-#ifdef SCHEDULER_DEBUG
+#ifdef Allocation
 			std::cout << "RB " << i << " is not yet allocated" << std::endl;
 #endif
 			left = i - 1;
@@ -409,12 +411,14 @@ void RecursiveMaximumExpansion::RBsAllocation() {
 	}
 
 	//Affichage
-#ifdef SCHEDULER_DEBUG
-	for (int i = 0; i < nbOfRBs; i++) {
-		std::cout << "Mallocation[" << i << "] =" << MAllocation[i]
-		<< std::endl;
-	}
-#endif
+	/*
+	 #ifdef Allocation
+	 for (int i = 0; i < nbOfRBs; i++) {
+	 std::cout << "Mallocation[" << i << "] =" << MAllocation[i]
+	 << std::endl;
+	 }
+	 #endif
+	 */
 
 //Calculate power
 	for (int j = 0; j < users->size(); j++) {
@@ -424,7 +428,12 @@ void RecursiveMaximumExpansion::RBsAllocation() {
 				GetMacEntity()->GetAmcModule()->GetTBSizeFromMCS(
 						scheduledUser1->m_selectedMCS,
 						scheduledUser1->m_listOfAllocatedRBs.size()) / 8;
-
+		if (scheduledUser1->m_listOfAllocatedRBs.size() == 0)
+			scheduledUser1->m_power += 0;
+		else
+			scheduledUser1->m_power += CalculatePower(
+					scheduledUser1->m_listOfAllocatedRBs.size(),
+					scheduledUser1);
 #ifdef SCHEDULER_DEBUG
 		printf(
 				"Scheduled User = %d mcs = %d Required RB's = %d Allocated RB's= %d\n",
@@ -433,26 +442,12 @@ void RecursiveMaximumExpansion::RBsAllocation() {
 				scheduledUser1->m_listOfAllocatedRBs.size());
 		for (int i = 0; i < scheduledUser1->m_listOfAllocatedRBs.size(); i++)
 		printf("%d ", scheduledUser1->m_listOfAllocatedRBs.at(i));
-
-#endif
-		if (scheduledUser1->m_listOfAllocatedRBs.size() == 0)
-			m_power[j] += 0;
-		else
-			m_power[j] += CalculatePower(
-					scheduledUser1->m_listOfAllocatedRBs.size(),
-					scheduledUser1);
-#ifdef SCHEDULER_DEBUG
-		std::cout << "power["
-		<< scheduledUser1->m_userToSchedule->GetIDNetworkNode() << "]= "
-		<< m_power[j] << std::endl;
-		//RBs /user/TTI
-		std::cout << "RME NRbs of "
-		<< scheduledUser1->m_userToSchedule->GetIDNetworkNode() << " = "
-		<< scheduledUser1->m_listOfAllocatedRBs.size() << std::endl;
 		printf("\n------------------\n");
 #endif
 		//number of scheduled users per TTI
 		if (scheduledUser1->m_listOfAllocatedRBs.size() > 0)
 			nbrOfScheduledUsers++;
 	}
+	std::cout << "number of scheduled users per TTI " << nbrOfScheduledUsers
+			<< std::endl;
 } //end RB Allocation

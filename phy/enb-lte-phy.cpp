@@ -47,6 +47,7 @@
  */
 #define NOISE -148.95
 #define UL_INTERFERENCE 4
+//#define TEST_DEVICE_ON_CHANNEL
 
 EnbLtePhy::EnbLtePhy()
 {

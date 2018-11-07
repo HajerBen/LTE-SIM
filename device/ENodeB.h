@@ -84,7 +84,8 @@ public:
 		ULScheduler_TYPE_ROUNDROBIN,
 		ULScheduler_TYPE_MYSCHEDULER,
 		ULScheduler_TYPE_Recursive_Maximum_Expansion,
-		ULScheduler_TYPE_Carrier_By_Carrier
+		ULScheduler_TYPE_Carrier_By_Carrier,
+		ULSCHEDULER_TEST
 	  };
 
 	ENodeB ();

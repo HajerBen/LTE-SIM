@@ -31,7 +31,7 @@
 #include "../componentManagers/NetworkManager.h"
 #include "../protocolStack/rrc/ho/handover-entity.h"
 #include "../protocolStack/rrc/ho/ho-manager.h"
-
+#include "../protocolStack/mac/packet-scheduler/uplink-packet-scheduler.h"
 
 UserEquipment::UserEquipment ()
 {}
@@ -263,18 +263,20 @@ UserEquipment::IsIndoor (void)
 }
 
 //KBA m_power
+
+
+void
+UserEquipment::SetPower (double power)
+{
+
+   m_power = power;
+}
+
 double
 UserEquipment::GetPower (void)
 {
   return m_power;
 }
-
-void
-UserEquipment::SetPower (void)
-{
-   m_power = m_power + 1.0;
-}
-
 //END KBA
 
 //Debug

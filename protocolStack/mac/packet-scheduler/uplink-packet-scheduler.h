@@ -35,7 +35,8 @@ public:
 		int m_transmittedData;	//bytes
 		int m_dataToTransmit;		//bytes
 		double m_averageSchedulingGrant; // in bytes
-
+//HB
+		double m_power; //transmitted power
 		std::vector<int> m_listOfAllocatedRBs;
 		int m_selectedMCS;
 		std::vector<int> m_channelContition; //similar to the CQI for the DL
@@ -58,11 +59,10 @@ public:
 			int subchannel) = 0;
 //HB
 	double CalculatePower(int nbRBs, UserToSchedule* ue);//, UserToSchedule* ue);
-
-//HB
+	//HB
 protected:
 
-	std::map<int,double> m_power;
+	//std::map<int,double> m_power;
 	std::map<int,int> m_NRBs;
 	//end HB
 private:

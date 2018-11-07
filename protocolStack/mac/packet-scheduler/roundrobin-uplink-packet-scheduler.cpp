@@ -36,7 +36,9 @@
 #include "../../../flows/MacQueue.h"
 #include "../../../utility/eesm-effective-sinr.h"
 
-#define SCHEDULER_DEBUG
+//#define SCHEDULER_DEBUG
+//#define Allocation
+
 RoundRobinUplinkPacketScheduler::RoundRobinUplinkPacketScheduler() {
 	SetMacEntity(0);
 	CreateUsersToSchedule();
@@ -51,17 +53,12 @@ RoundRobinUplinkPacketScheduler::~RoundRobinUplinkPacketScheduler() {
 
 double RoundRobinUplinkPacketScheduler::ComputeSchedulingMetric(
 		RadioBearer *bearer, double spectralEfficiency, int subChannel) {
-	std::cout << "RoundRobinUplinkPacketScheduler::ComputeSchedulingMetric"
-			<< std::endl;
 	double metric;
 	return metric;
 }
 
 double RoundRobinUplinkPacketScheduler::ComputeSchedulingMetric(
 		UserToSchedule* user, int subchannel) {
-	std::cout
-			<< "RoundRobinUplinkPacketScheduler::RoundRobinUplinkPacketScheduler::RoundRobinUplinkPacketScheduler::ComputeSchedulingMetric"
-			<< std::endl;
 	double metric;
 
 	int channelCondition = user->m_channelContition.at(subchannel);
@@ -74,15 +71,18 @@ double RoundRobinUplinkPacketScheduler::ComputeSchedulingMetric(
 }
 
 void RoundRobinUplinkPacketScheduler::RBsAllocation() {
+
+#ifdef Allocation
 	std::cout << "RBsAllocation (RR)" << std::endl;
-#ifdef SCHEDULER_DEBUG
 	std::cout << " ---- RR UL RBs Allocation";
 #endif
 
 	UsersToSchedule *users = GetUsersToSchedule();
 	int nbOfRBs =
 			GetMacEntity()->GetDevice()->GetPhy()->GetBandwidthManager()->GetUlSubChannels().size();
-
+	int nbrOfScheduledUsers;
+	nbrOfScheduledUsers = 0;
+	int requiredPRBs[users->size()];
 	//RBs allocation
 	int nbPrbToAssign = 5;
 	int stop_nbOfRBs = nbOfRBs;
@@ -91,10 +91,10 @@ void RoundRobinUplinkPacketScheduler::RBsAllocation() {
 		stop_nbOfRBs = nbPrbToAssign * users->size();
 	}
 
-#ifdef SCHEDULER_DEBUG
+#ifdef Allocation
 	std::cout << "  PRB to assign " << nbOfRBs << ", PRB for user "
 
-			<< nbPrbToAssign << std::endl;
+	<< nbPrbToAssign << std::endl;
 #endif
 
 	int s = 0;
@@ -103,7 +103,11 @@ void RoundRobinUplinkPacketScheduler::RBsAllocation() {
 			m_roundRobinId = 0; //restart again from the beginning
 
 		UserToSchedule* scheduledUser = users->at(m_roundRobinId);
-		std::cout << "user to schedule " << scheduledUser->m_userToSchedule->GetIDNetworkNode() << std::endl;
+#ifdef SCHEDULER_DEBUG
+		std::cout << "user to schedule "
+				<< scheduledUser->m_userToSchedule->GetIDNetworkNode()
+				<< std::endl;
+#endif
 		std::vector<double> sinrs;
 		for (int i = 0; i < nbPrbToAssign; i++) {
 			double chCondition = scheduledUser->m_channelContition.at(s + i);
@@ -124,21 +128,50 @@ void RoundRobinUplinkPacketScheduler::RBsAllocation() {
 		s = s + nbPrbToAssign;
 		m_roundRobinId++;
 		//HB
-		m_power[scheduledUser->m_userToSchedule->GetIDNetworkNode()] =
-				CalculatePower(scheduledUser->m_listOfAllocatedRBs.size(),scheduledUser);
+		//create number of required PRB's per scheduled users
+		for (int j = 0; j < users->size(); j++) {
+			scheduledUser = users->at(j);
+#ifdef SCHEDULER_DEBUG
+			cout << "\n" << "User " << j; // << "CQI Vector";
+#endif
 
-				std::cout << "power["
-				<< scheduledUser->m_userToSchedule->GetIDNetworkNode() << "]= "
-				<< m_power[scheduledUser->m_userToSchedule->GetIDNetworkNode()]
-				<< std::endl;
-		m_NRBs[scheduledUser->m_userToSchedule->GetIDNetworkNode()] =
-				scheduledUser->m_listOfAllocatedRBs.size();
-		std::cout << "RR NRbs of "
-				<< scheduledUser->m_userToSchedule->GetIDNetworkNode() << " = "
-				<< m_NRBs[scheduledUser->m_userToSchedule->GetIDNetworkNode()]
-				<< std::endl;
+			int mcs = GetMacEntity()->GetAmcModule()->GetMCSFromCQI(
+					GetMacEntity()->GetAmcModule()->GetCQIFromSinr(
+							effectiveSinr));
+			scheduledUser->m_selectedMCS = mcs;
+			requiredPRBs[j] = (floor)(
+					scheduledUser->m_dataToTransmit
+							/ (GetMacEntity()->GetAmcModule()->GetTBSizeFromMCS(
+									mcs, 1) / 8));
+#ifdef SCHEDULER_DEBUG
+			cout << ":  EffSINR = " << effectiveSinr << "  MCS = " << mcs
+					<< " Required RBs " << requiredPRBs[j] << "\n";
+#endif
+
+#ifdef SCHEDULER_DEBUG
+			printf(
+					"Scheduled User = %d mcs = %d Required RB's = %d Allocated RB's= %d\n",
+					scheduledUser->m_userToSchedule->GetIDNetworkNode(),
+					scheduledUser->m_selectedMCS, requiredPRBs[j],
+					scheduledUser->m_listOfAllocatedRBs.size());
+			for (int i = 0; i < scheduledUser->m_listOfAllocatedRBs.size(); i++)
+				printf("%d ", scheduledUser->m_listOfAllocatedRBs.at(i));
+			printf("\n------------------\n");
+#endif
+//Calculate power
+			scheduledUser->m_power = CalculatePower(
+					scheduledUser->m_listOfAllocatedRBs.size(), scheduledUser);
+		}
+
+		//number of scheduled users per TTI
+		if (scheduledUser->m_listOfAllocatedRBs.size() > 0)
+			nbrOfScheduledUsers++;
+
 		//end HB
 	}
-
+#ifdef SCHEDULER_DEBUG
+	std::cout << "number of scheduled users per TTI " << nbrOfScheduledUsers
+			<< std::endl;
+#endif
 }
 

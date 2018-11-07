@@ -73,7 +73,7 @@ static void SingleCellWithoutInterference (double radius,
   NetworkManager* networkManager = NetworkManager::Init();
 
   // CONFIGURE SEED
-  if (seed >= 0)
+/*  if (seed >= 0)
 	{
 	  int commonSeed = GetCommonSeed (seed);
 	  srand (commonSeed);
@@ -81,7 +81,7 @@ static void SingleCellWithoutInterference (double radius,
   else
 	{
 	  srand (time(NULL));
-	}
+	}*/
   std::cout << "Simulation with SEED = " << seed << std::endl;
 
   // SET SCHEDULING ALLOCATION SCHEME

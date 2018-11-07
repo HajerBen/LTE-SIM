@@ -35,9 +35,10 @@
 #include "../protocolStack/mac/packet-scheduler/roundrobin-uplink-packet-scheduler.h"
 #include "../protocolStack/mac/packet-scheduler/myScheduler.h"
 #include "../protocolStack/mac/packet-scheduler/rme-uplink-packet-scheduler.h"
-#include "../protocolStack/mac/packet-scheduler/FDPS-carrier-by-carrier.h"
+#include "../protocolStack/mac/packet-scheduler/scheduler-test.h"
 #include "../phy/enb-lte-phy.h"
 #include "../core/spectrum/bandwidth-manager.h"
+#include "../protocolStack/mac/packet-scheduler/FDPS-carrier-by-carrier.h"
 #include "../protocolStack/packet/packet-burst.h"
 
 ENodeB::ENodeB() {
@@ -332,6 +333,11 @@ void ENodeB::SetULScheduler(ULSchedulerType type) {
 		break;
 	case ENodeB::ULScheduler_TYPE_Carrier_By_Carrier:
 		scheduler = new CarrierByCarrierPacketScheduler();
+		scheduler->SetMacEntity(mac);
+		mac->SetUplinkPacketScheduler(scheduler);
+		break;
+	case ENodeB::ULSCHEDULER_TEST:
+		scheduler = new SchedulerTest();
 		scheduler->SetMacEntity(mac);
 		mac->SetUplinkPacketScheduler(scheduler);
 		break;

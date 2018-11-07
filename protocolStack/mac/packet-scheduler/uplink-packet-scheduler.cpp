@@ -34,8 +34,10 @@
 #include "../../../flows/MacQueue.h"
 #include "../../../utility/eesm-effective-sinr.h"
 #include "../../../utility/ComputePathLoss.h"
+#include "../../../device/UserEquipment.h"
 #include <algorithm>
-#define SCHEDULER_DEBUG
+#include <math.h>
+//#define SCHEDULER_DEBUG
 
 UplinkPacketScheduler::UplinkPacketScheduler() {
 
@@ -84,7 +86,7 @@ void UplinkPacketScheduler::SelectUsersToSchedule() {
 
 #ifdef SCHEDULER_DEBUG
 	std::cout << "UplinkPacketScheduler::SelectUsersToSchedule () "
-			" users " << node->GetUserEquipmentRecords()->size() << std::endl;
+	" users " << node->GetUserEquipmentRecords()->size() << std::endl;
 #endif
 
 	for (iter = records->begin(); iter != records->end(); iter++) {
@@ -98,20 +100,23 @@ void UplinkPacketScheduler::SelectUsersToSchedule() {
 			user->m_transmittedData = 0;
 			user->m_channelContition = record->GetCQI();
 			user->m_averageSchedulingGrant = record->GetSchedulingGrants();
+//HB
+		//	user->m_power = 0;
+
 
 			GetUsersToSchedule()->push_back(user);
 		}
 	}
 #ifdef SCHEDULER_DEBUG
 	std::cout << "users to be schedule = " << GetUsersToSchedule()->size()
-			<< std::endl;
+	<< std::endl;
 #endif
 }
 
 void UplinkPacketScheduler::DoSchedule(void) {
 #ifdef SCHEDULER_DEBUG
 	std::cout << "Start UPLINK packet scheduler for node "
-			<< GetMacEntity()->GetDevice()->GetIDNetworkNode() << std::endl;
+	<< GetMacEntity()->GetDevice()->GetIDNetworkNode() << std::endl;
 #endif
 
 	SelectUsersToSchedule();
@@ -144,10 +149,10 @@ void UplinkPacketScheduler::RBsAllocation() {
 
 #ifdef SCHEDULER_DEBUG
 	std::cout << ",UL available RBs " << nbOfRBs << ", users " << users->size()
-			<< std::endl;
+	<< std::endl;
 	for (int ii = 0; ii < users->size(); ii++) {
 		std::cout << "\t metrics for user "
-				<< users->at(ii)->m_userToSchedule->GetIDNetworkNode();
+		<< users->at(ii)->m_userToSchedule->GetIDNetworkNode();
 		for (int jj = 0; jj < nbOfRBs; jj++) {
 			std::cout << " " << metrics[jj][ii];
 		}
@@ -230,17 +235,25 @@ void UplinkPacketScheduler::DoStopSchedule(void) {
 				pdcchMsg->AddNewRecord(PdcchMapIdealControlMessage::UPLINK,
 						user->m_listOfAllocatedRBs.at(rb),
 						user->m_userToSchedule, user->m_selectedMCS);
+
 			}
 
 			//update users informations
 			ENodeB *enb = (ENodeB*) GetMacEntity()->GetDevice();
 			ENodeB::UserEquipmentRecord* record = enb->GetUserEquipmentRecord(
 					user->m_userToSchedule->GetIDNetworkNode());
+#ifdef SCHEDULER_DEBUG
+			std::cout << "****now " <<  Simulator::Init()->Now() << "*** data of" << user->m_userToSchedule->GetIDNetworkNode() << " is "<< record->m_schedulingRequest  << std::endl;
+
+#endif
 			record->m_schedulingRequest -= user->m_transmittedData;
+			//std::cout << "rest data " << record->m_schedulingRequest  << std::endl;
 			if (record->m_schedulingRequest < 0) {
 				record->m_schedulingRequest = 0;
 			}
 			record->UpdateSchedulingGrants(user->m_dataToTransmit);
+
+			record->GetUE()->SetPower(user->m_power);
 
 		}
 	}
@@ -254,16 +267,18 @@ void UplinkPacketScheduler::DoStopSchedule(void) {
 }
 
 double UplinkPacketScheduler::CalculatePower(int nbRBs, UserToSchedule* ue) {
-	double P0 = -57.0;
-	double Pmax = 23;
+	double P0 = -57.0; //dBm/PRB
+	double Pmax = 23; //dBm
 	double alpha = 0.6;
 	double power;
-
 	ENodeB *eNB = (ENodeB*) GetMacEntity()->GetDevice();
 	double pathloss = ComputePathLossForInterference(eNB, ue->m_userToSchedule);
-	std::cout << "PATHLOSS ( " << ue->m_userToSchedule->GetIDNetworkNode()
-			<< ") = " << pathloss << std::endl;
-	power = std::min(Pmax, P0 + 10 * log10(nbRBs) + alpha * pathloss);
-	return power;
+
+	if (nbRBs == 0)
+		power = 0;
+	else
+		power = std::min(Pmax,
+				P0  + 10 * log10 (nbRBs) + alpha * pathloss);
+		return power;
 }
 

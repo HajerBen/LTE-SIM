@@ -123,8 +123,8 @@ ApplicationSink::Receive (Packet* p)
   double delay = ((Simulator::Init()->Now() *10000) - (p->GetTimeStamp () *10000)) /10000;
   if (delay < 0.000001) delay = 0.000001;
 
-  UserEquipment* ue = (UserEquipment*) GetSourceApplication ()->GetDestination ();
-
+ //UserEquipment* ue = (UserEquipment*) GetSourceApplication ()->GetDestination ();
+  UserEquipment* ue = (UserEquipment*) GetSourceApplication ()->GetSource();
   std::cout << " ID " << p->GetID ()
                         << " B " << m_sourceApplication->GetApplicationID ()
                         << " SIZE " << p->GetPacketTags ()->GetApplicationSize ()
@@ -132,7 +132,9 @@ ApplicationSink::Receive (Packet* p)
                         << " DST " << p->GetDestinationID ()
                         << " D " << delay
                         << " " << ue->IsIndoor ()
-						<< " POWER OF:" << ue->GetIDNetworkNode() << " ="<< ue->GetPower() << std::endl;
+						<< " T " << Simulator::Init()->Now()//HB
+						<< " POWER "<< ue->GetPower()
+						<< std::endl;
 
 
 
