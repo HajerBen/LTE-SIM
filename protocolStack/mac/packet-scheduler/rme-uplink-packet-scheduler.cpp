@@ -365,7 +365,7 @@ void RecursiveMaximumExpansion::RBsAllocation() {
 
 						else if ((users->at(adjacentRightUser)->m_listOfAllocatedRBs.size()
 								+ right - i)
-								<= requiredPRBs[adjacentLeftUser]) {
+								<= requiredPRBs[adjacentRightUser]) {
 							selectedUser = adjacentRightUser;
 							Allocated[i] = true;
 							MAllocation[i] = selectedUser;
@@ -385,7 +385,7 @@ void RecursiveMaximumExpansion::RBsAllocation() {
 					else {
 						if ((users->at(adjacentRightUser)->m_listOfAllocatedRBs.size()
 								+ right - i)
-								<= requiredPRBs[adjacentLeftUser]) {
+								<= requiredPRBs[adjacentRightUser]) {
 							selectedUser = adjacentRightUser;
 							Allocated[i] = true;
 							MAllocation[i] = selectedUser;
