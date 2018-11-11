@@ -19,11 +19,11 @@ public:
 
 	virtual double ComputeSchedulingMetric (RadioBearer *bearer, double spectralEfficiency, int subChannel);
     virtual double ComputeSchedulingMetric (UserToSchedule* user, int subchannel);
+   	virtual void RBsAllocation ();
 
-	virtual void RBsAllocation ();
-	void SelectFlowsToSchedule ();
-	void ContinueAllocation();
-
+//HB
+	double ComputeSchedulingMetric(UserToSchedule* user) ;
+	void ChannelSorted(int SizeOfChannelSorted,std::vector<int> &ChannelsSorted, std::vector<int> &bestRBs );
 };
 
 
