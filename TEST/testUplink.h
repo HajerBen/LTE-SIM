@@ -45,7 +45,7 @@ static void TestUplink(double radius, int nbUe, int sched_Type, int stopTime,
 		{
 
 	srand(time(NULL));
-	int startTime = 0.01;
+	int startTime = 0.001;
 
 	// CREATE COMPONENT MANAGERS
 	Simulator *simulator = Simulator::Init();
@@ -214,6 +214,7 @@ static void TestUplink(double radius, int nbUe, int sched_Type, int stopTime,
 			destinationPort++;
 			applicationID++;
 			cbrApplication++;
+
 		}
 
 		// create application
@@ -316,7 +317,7 @@ static void TestUplink(double radius, int nbUe, int sched_Type, int stopTime,
 		std::cout << Simulator::Init()->Now() << std::endl;
 	}
 
-	Simulator::Init()->SetStop(10);
+	Simulator::Init()->SetStop(stopTime);
 	Simulator::Init()->Run();
 }
 
