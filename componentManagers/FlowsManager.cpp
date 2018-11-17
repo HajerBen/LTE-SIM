@@ -29,6 +29,8 @@
 #include "../flows/application/InfiniteBuffer.h"
 #include "../flows/application/VoIP.h"
 #include "../flows/application/TraceBased.h"
+#include "../flows/application/Time_Driven_Application.h"
+#include "../flows/application/Event_Driven_Application.h"
 #include "../load-parameters.h"
 
 FlowsManager* FlowsManager::ptr=NULL;
@@ -67,6 +69,16 @@ FlowsManager::CreateApplication (int applicationID,
     {
 	  app = new TraceBased ();
     }
+  //HB
+  if (type == Application::APPLICATION_TYPE_TIME_DRIVEN)
+     {
+ 	  app = new TimeDrivenApplication ();
+     }
+  if (type == Application::APPLICATION_TYPE_EVENT_DRIVEN)
+     {
+ 	  app = new EventDrivenApplication ();
+     }
+
 
   app->SetApplicationID (applicationID);
   app->SetSource (src);

@@ -369,6 +369,10 @@ MacQueue::CheckForDropPackets (double maxDelay,
 				  std::cout << " CBR";
 			  else if (GetPacketQueue ()->begin ()->GetPacket()->GetPacketTags()->GetApplicationType() == PacketTAGs::APPLICATION_TYPE_INFINITE_BUFFER)
 				  std::cout << " INF_BUF";
+			  else if (GetPacketQueue ()->begin ()->GetPacket()->GetPacketTags()->GetApplicationType() == PacketTAGs::APPLICATION_TYPE_TIME_DRIVEN)
+			 	std::cout << " TIME_DRIVEN";
+			  else if (GetPacketQueue ()->begin ()->GetPacket()->GetPacketTags()->GetApplicationType() == PacketTAGs::APPLICATION_TYPE_EVENT_DRIVEN)
+			 	std::cout << " EVENT_DRIVEN";
 			  else
 				  std::cout << " UNKNOW";
 

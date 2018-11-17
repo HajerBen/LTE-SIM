@@ -200,6 +200,10 @@ UmRlcEntity::ReceptionProcedure (Packet* p)
 			  std::cout << " CBR";
 		  else if (pp->GetPacketTags()->GetApplicationType() == PacketTAGs::APPLICATION_TYPE_INFINITE_BUFFER)
 			  std::cout << " INF_BUF";
+		  else if (pp->GetPacketTags()->GetApplicationType() == PacketTAGs::APPLICATION_TYPE_TIME_DRIVEN)
+			  std::cout << " TIME_DRIVEN";
+		  else if (pp->GetPacketTags()->GetApplicationType() == PacketTAGs::APPLICATION_TYPE_EVENT_DRIVEN)
+		 			  std::cout << " EVENT_DRIVEN";
 		  else
 			  std::cout << " UNKNOW";
 
@@ -279,6 +283,10 @@ UmRlcEntity::ReceptionProcedure (Packet* p)
 				  std::cout << " CBR";
 			  else if (p->GetPacketTags()->GetApplicationType() == PacketTAGs::APPLICATION_TYPE_INFINITE_BUFFER)
 				  std::cout << " INF_BUF";
+			  else if (p->GetPacketTags()->GetApplicationType() == PacketTAGs::APPLICATION_TYPE_TIME_DRIVEN)
+				  std::cout << " TIME_DRIVEN";
+			  else if (p->GetPacketTags()->GetApplicationType() == PacketTAGs::APPLICATION_TYPE_EVENT_DRIVEN)
+				  std::cout << " EVENT_DRIVEN";
 			  else
 				  std::cout << " UNKNOW";
 

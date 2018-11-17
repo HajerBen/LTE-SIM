@@ -113,6 +113,16 @@ ApplicationSink::Receive (Packet* p)
 		  std::cout << " INF_BUF";
 		  break;
 		}
+	  case Application::APPLICATION_TYPE_TIME_DRIVEN:
+	  		{
+	  		  std::cout << " TIME_DRIVEN";
+	  		  break;
+	  		}
+	  case Application::APPLICATION_TYPE_EVENT_DRIVEN:
+	  		{
+	  		  std::cout << " EVENT_DRIVEN";
+	  		  break;
+	  		}
 	  default:
 		{
 		  std::cout << " UNDEFINED";
