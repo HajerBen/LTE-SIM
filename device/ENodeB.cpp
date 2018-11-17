@@ -41,6 +41,7 @@
 #include "../protocolStack/mac/packet-scheduler/FDPS-carrier-by-carrier.h"
 #include "../protocolStack/packet/packet-burst.h"
 
+#include "../protocolStack/mac/packet-scheduler/LioumpasV2-uplink-scheduler.h"
 ENodeB::ENodeB() {
 }
 
@@ -338,6 +339,11 @@ void ENodeB::SetULScheduler(ULSchedulerType type) {
 		break;
 	case ENodeB::ULSCHEDULER_TEST:
 		scheduler = new SchedulerTest();
+		scheduler->SetMacEntity(mac);
+		mac->SetUplinkPacketScheduler(scheduler);
+		break;
+	case ENodeB::LIOUMPAS_V2_UPLINK_SCHEDULER:
+		scheduler = new LioumpasV2();
 		scheduler->SetMacEntity(mac);
 		mac->SetUplinkPacketScheduler(scheduler);
 		break;
