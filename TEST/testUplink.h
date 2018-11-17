@@ -37,10 +37,17 @@
 #include "../channel/propagation-model/propagation-loss-model.h"
 #include "../protocolStack/mac/packet-scheduler/mt-uplink-packet-scheduler.h"
 #include "../componentManagers/FlowsManager.h"
-
-static void TestUplink(double radius, int nbUe, int sched_Type, int stopTime,
-		int nbVideo, int nbCBR, int nbBE, int videoBitRate, double maxDelay,double bandwidth)
-		//int frame_struct
+#include "../flows/application/Event_Driven_Application.h"
+#include "../flows/application/Time_Driven_Application.h"
+static void TestUplink(double radius,
+			int nbH2H,int nbM2M,
+			int sched_Type,
+			int stopTime,
+			int nbVideo,
+			int nbCBR,
+			int nbVoIP,
+			double bandwidth)
+//int frame_struct
 
 		{
 
@@ -54,11 +61,12 @@ static void TestUplink(double radius, int nbUe, int sched_Type, int stopTime,
 	FlowsManager* flowsManager = FlowsManager::Init();
 
 	//Create cell
-	Cell *cell = new Cell(0, radius, 0.35, 0, 0);//Cell(idCell,radius,minDistance,x,y)
+	Cell *cell = new Cell(0, radius, 0.35, 0, 0); //Cell(idCell,radius,minDistance,x,y)
 	LteChannel *dlCh = new LteChannel();
 	LteChannel *ulCh = new LteChannel();
 	networkManager->GetCellContainer()->push_back(cell);
-	BandwidthManager* spectrum = new BandwidthManager(bandwidth, bandwidth, 0, 0);
+	BandwidthManager* spectrum = new BandwidthManager(bandwidth, bandwidth, 0,
+			0);
 
 	//Create GW
 	Gateway *gw = new Gateway();
@@ -94,8 +102,12 @@ static void TestUplink(double radius, int nbUe, int sched_Type, int stopTime,
 		break;
 	case 7:
 		uplink_scheduler_type = ENodeB::ULSCHEDULER_TEST;
-				std::cout << "scheduler test " << std::endl;
-				break;
+		std::cout << "scheduler test " << std::endl;
+		break;
+	case 8:
+		uplink_scheduler_type = ENodeB::LIOUMPAS_V2_UPLINK_SCHEDULER;
+		std::cout << "LioumpasV2 " << std::endl;
+		break;
 	default:
 		uplink_scheduler_type = ENodeB::ULScheduler_TYPE_FME;
 		break;
@@ -130,30 +142,31 @@ static void TestUplink(double radius, int nbUe, int sched_Type, int stopTime,
 	//Define Application Container
 	TraceBased VideoApplication;
 	CBR CBRApplication;
-	InfiniteBuffer BEApplication;
-	int beApplication = 0;
-	int videoApplication = 0;
-	int cbrApplication = 0;
+	VoIP VoIPApplication;
+
 	int idUe = 100;
+	int idM2MUe = 500;
 	int applicationID = 0;
 	int sourcePort = 0;
 	int destinationPort = 100;
+	int videoBitRate = 128;
 
-//Create UEs
-	for (int i = 0; i < nbUe; i++) {
+//Create H2H devices
+	// create 30 H2H
+	for (int i = 0; i < nbH2H; i++) {
 		//ue's random position
 //	  int maxXY = cell->GetRadius () * 1000;
 		int distance = 200;
-		double posX = (double)(rand() % 1000);
+		double posX = (double) (rand() % 1000);
 		double posY = (double) (rand() % 1000);
 		double speedDirection = (double) (rand() % 360) * ((2 * 3.14) / 360);
-		double speed = 30;
+		double speed = 3;
 
 		printf("Creating UE %d at (%lf,%lf)\n", idUe, posX, posY);
 
 		UserEquipment* ue = new UserEquipment(idUe, posX, posY, speed,
 				speedDirection, cell, enb, 0, //handover false!
-				Mobility::CONSTANT_POSITION);
+				Mobility::RANDOM_DIRECTION);
 
 		ue->GetPhy()->SetDlChannel(dlCh);
 		ue->GetPhy()->SetUlChannel(ulCh);
@@ -165,14 +178,14 @@ static void TestUplink(double radius, int nbUe, int sched_Type, int stopTime,
 		//register ue to the enb
 		enb->RegisterUserEquipment(ue);
 		//define the channel realization
-		MacroCellUrbanAreaChannelRealization* c_dl = new MacroCellUrbanAreaChannelRealization(enb, ue);
+		MacroCellUrbanAreaChannelRealization* c_dl =
+				new MacroCellUrbanAreaChannelRealization(enb, ue);
 		enb->GetPhy()->GetDlChannel()->GetPropagationLossModel()->AddChannelRealization(
 				c_dl);
-		MacroCellUrbanAreaChannelRealization* c_ul = new MacroCellUrbanAreaChannelRealization(ue, enb);
+		MacroCellUrbanAreaChannelRealization* c_ul =
+				new MacroCellUrbanAreaChannelRealization(ue, enb);
 		enb->GetPhy()->GetUlChannel()->GetPropagationLossModel()->AddChannelRealization(
 				c_ul);
-
-
 
 		FullbandCqiManager *cqiManager = new FullbandCqiManager();
 		cqiManager->SetCqiReportingMode(CqiManager::PERIODIC);
@@ -180,11 +193,10 @@ static void TestUplink(double radius, int nbUe, int sched_Type, int stopTime,
 		cqiManager->SetDevice(ue);
 		ue->SetCqiManager(cqiManager);
 		// *** cbr application
-		//Créer des applcation avec différents délais et IAT
 
-		int delay = rand() % 600 + 0.01 ;
-		int IAT = rand() % 60 + 0.01;
-		int size = rand() % 1000 + 1;
+		double IAT = 256 / 16000;
+		double delay = 0.300;
+		double size = 256;
 		for (int j = 0; j < nbCBR; j++) {
 			//Create an Application
 			QoSParameters *qos = new QoSParameters();
@@ -209,12 +221,10 @@ static void TestUplink(double radius, int nbUe, int sched_Type, int stopTime,
 			cbrApp->SetClassifierParameters(cp);
 
 			std::cout << "CREATED CBR APPLICATION, ID " << applicationID
-					<< std::endl;
+					<< " IAT " << IAT << " Delay " << delay << std::endl;
 			//update counter
 			destinationPort++;
 			applicationID++;
-			cbrApplication++;
-
 		}
 
 		// create application
@@ -267,7 +277,7 @@ static void TestUplink(double radius, int nbUe, int sched_Type, int stopTime,
 			}
 			//Create QoS
 			QoSParameters *qosVideo = new QoSParameters;
-			qosVideo->SetMaxDelay(maxDelay);
+			qosVideo->SetMaxDelay(0.150);
 			VideoApplication.SetQoSParameters(qosVideo);
 			//create classifier parameters
 			ClassifierParameters *cp = new ClassifierParameters(
@@ -285,37 +295,152 @@ static void TestUplink(double radius, int nbUe, int sched_Type, int stopTime,
 
 		}
 
-		// *** be application
-		for (int j = 0; j < nbBE; j++) {
+		// *** voip application
+		for (int j = 0; j < nbVoIP; j++) {
 			// create application
-			BEApplication.SetSource(ue);
-			BEApplication.SetDestination(gw);
-			BEApplication.SetApplicationID(applicationID);
-			BEApplication.SetStartTime(startTime);
-			BEApplication.SetStopTime(stopTime);
+			VoIPApplication.SetSource(ue);
+			VoIPApplication.SetDestination(gw);
+			VoIPApplication.SetApplicationID(applicationID);
+			VoIPApplication.SetStartTime(startTime);
+			VoIPApplication.SetStopTime(stopTime);
 
 			// create qos parameters
-			QoSParameters *qosParameters = new QoSParameters();
-			BEApplication.SetQoSParameters(qosParameters);
+
+			QoSParameters *qos = new QoSParameters();
+			qos->SetMaxDelay(0.1);
+			VoIPApplication.SetQoSParameters(qos);
 
 			//create classifier parameters
 			ClassifierParameters *cp = new ClassifierParameters(
-					 ue->GetIDNetworkNode(),gw->GetIDNetworkNode(), sourcePort,
+					ue->GetIDNetworkNode(), gw->GetIDNetworkNode(), 0,
 					destinationPort,
 					TransportProtocol::TRANSPORT_PROTOCOL_TYPE_UDP);
-			BEApplication.SetClassifierParameters(cp);
+			VoIPApplication.SetClassifierParameters(cp);
 
-			std::cout << "CREATED BE APPLICATION, ID " << applicationID
+			std::cout << "CREATED VOIP APPLICATION, ID " << applicationID
 					<< std::endl;
 
 			//update counter
 			destinationPort++;
 			applicationID++;
-			sourcePort++;
 		}
 		idUe++;
-		std::cout << Simulator::Init()->Now() << std::endl;
 	}
+
+	//Create M2M devices
+
+	for (int i = 0; i < nbM2M; i++) {
+		//ue's random position
+		//	  int maxXY = cell->GetRadius () * 1000;
+		int distance = 200;
+		double posX = (double) (rand() % 1000);
+		double posY = (double) (rand() % 1000);
+		double speedDirection = (double) (rand() % 360) * ((2 * 3.14) / 360);
+		double speed = 3;
+
+		printf("Creating UE %d at (%lf,%lf)\n", idM2MUe, posX, posY);
+
+		UserEquipment* ue = new UserEquipment(idM2MUe, posX, posY, speed,
+				speedDirection, cell, enb, 0, //handover false!
+				Mobility::CONSTANT_POSITION);
+
+		ue->GetPhy()->SetDlChannel(dlCh);
+		ue->GetPhy()->SetUlChannel(ulCh);
+		ue->GetPhy()->GetDlChannel()->AddDevice(ue);
+
+		WidebandCqiEesmErrorModel *errorModel = new WidebandCqiEesmErrorModel();
+		ue->GetPhy()->SetErrorModel(errorModel);
+		networkManager->GetUserEquipmentContainer()->push_back(ue);
+		//register ue to the enb
+		enb->RegisterUserEquipment(ue);
+		//define the channel realization
+		MacroCellUrbanAreaChannelRealization* c_dl =
+				new MacroCellUrbanAreaChannelRealization(enb, ue);
+		enb->GetPhy()->GetDlChannel()->GetPropagationLossModel()->AddChannelRealization(
+				c_dl);
+		MacroCellUrbanAreaChannelRealization* c_ul =
+				new MacroCellUrbanAreaChannelRealization(ue, enb);
+		enb->GetPhy()->GetUlChannel()->GetPropagationLossModel()->AddChannelRealization(
+				c_ul);
+
+		FullbandCqiManager *cqiManager = new FullbandCqiManager();
+		cqiManager->SetCqiReportingMode(CqiManager::PERIODIC);
+		cqiManager->SetReportingInterval(1);
+		cqiManager->SetDevice(ue);
+		ue->SetCqiManager(cqiManager);
+
+		//create time driven devices :70% of M2M application
+		if (i < 0.7 * nbM2M) {
+			double IAT = (double) (rand() % 5 + 0.05);
+			double delay = IAT;
+			double size = 125;
+
+			//Create an Application
+			QoSParameters *qos = new QoSParameters();
+			qos->SetMaxDelay(delay);
+			TimeDrivenApplication *TimeDrivenApp = new TimeDrivenApplication;
+			// create application
+			TimeDrivenApp->SetApplicationID(applicationID);
+			TimeDrivenApp->SetSource(ue);
+			TimeDrivenApp->SetDestination(gw);
+			TimeDrivenApp->SetSourcePort(sourcePort);
+			TimeDrivenApp->SetDestinationPort(destinationPort);
+			TimeDrivenApp->SetStartTime(startTime);
+			TimeDrivenApp->SetStopTime(stopTime);
+			TimeDrivenApp->SetInterval(IAT);
+			TimeDrivenApp->SetSize(size);
+			TimeDrivenApp->SetQoSParameters(qos);
+
+			ClassifierParameters *cp = new ClassifierParameters(
+					ue->GetIDNetworkNode(), gw->GetIDNetworkNode(), sourcePort,
+					destinationPort,
+					TransportProtocol::TRANSPORT_PROTOCOL_TYPE_UDP);
+			TimeDrivenApp->SetClassifierParameters(cp);
+
+			std::cout << "CREATED Time Driven APPLICATION, ID " << applicationID
+					<< " IAT " << IAT << " Delay " << delay << std::endl;
+			//update counter
+			destinationPort++;
+			applicationID++;
+		}
+		//30% of M2M application are EVENT Driven application
+		if (i >= 0.7 * nbM2M) {
+			double IAT = (double) (rand() % 5 + 0.05);
+			double delay = IAT;
+			double size = 125;
+
+			//Create an Application
+			QoSParameters *qos = new QoSParameters();
+			qos->SetMaxDelay(delay);
+			TimeDrivenApplication *EventDrivenApp = new TimeDrivenApplication;
+			// create application
+			EventDrivenApp->SetApplicationID(applicationID);
+			EventDrivenApp->SetSource(ue);
+			EventDrivenApp->SetDestination(gw);
+			EventDrivenApp->SetSourcePort(sourcePort);
+			EventDrivenApp->SetDestinationPort(destinationPort);
+			EventDrivenApp->SetStartTime(startTime);
+			EventDrivenApp->SetStopTime(stopTime);
+			EventDrivenApp->SetInterval(IAT);
+			EventDrivenApp->SetSize(size);
+			EventDrivenApp->SetQoSParameters(qos);
+
+			ClassifierParameters *cp = new ClassifierParameters(
+					ue->GetIDNetworkNode(), gw->GetIDNetworkNode(), sourcePort,
+					destinationPort,
+					TransportProtocol::TRANSPORT_PROTOCOL_TYPE_UDP);
+			EventDrivenApp->SetClassifierParameters(cp);
+
+			std::cout << "CREATED Event Driven APPLICATION, ID "
+					<< applicationID << " IAT " << IAT << " Delay " << delay
+					<< std::endl;
+			//update counter
+			destinationPort++;
+			applicationID++;
+		}
+		idM2MUe++;
+	}
+//create Event driven devices :30% of M2M application
 
 	Simulator::Init()->SetStop(stopTime);
 	Simulator::Init()->Run();
