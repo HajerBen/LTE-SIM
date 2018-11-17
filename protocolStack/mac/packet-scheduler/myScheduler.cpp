@@ -37,8 +37,8 @@
 #include "../../../utility/eesm-effective-sinr.h"
 #include <vector>
 
-#define SCHEDULER_DEBUG
-#define Allocation
+//#define SCHEDULER_DEBUG
+//#define Allocation
 myScheduler::myScheduler() {
 	SetMacEntity(0);
 	CreateUsersToSchedule();
@@ -84,7 +84,7 @@ double myScheduler::ComputeSchedulingMetric(UserToSchedule* user) {
 	}
 
 	metric = maxDelay - user->m_delay;
-	std::cout << "delay " << metric << std::endl;
+	//std::cout << "delay " << metric << std::endl;
 	return metric;
 }
 
@@ -506,7 +506,7 @@ void myScheduler::RBsAllocation() {
 //not all RBs are allocated
 	int i = 0;
 
-	while (i < nbOfRBs && availableRBs < (nbOfRBs - 1)) {
+	while (i < nbOfRBs && availableRBs < (nbOfRBs - 1) && availableRBs > 0) {
 		if (!Allocated[i]) {
 #ifdef Allocation
 			std::cout << "RB " << i << " is not yet allocated" << std::endl;

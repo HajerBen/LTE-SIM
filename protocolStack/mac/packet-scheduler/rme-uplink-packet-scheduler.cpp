@@ -283,7 +283,7 @@ void RecursiveMaximumExpansion::RBsAllocation() {
 #endif
 	int i = 0;
 
-	while (i < nbOfRBs && availableRBs < (nbOfRBs - 1)) {
+	while (i < nbOfRBs && availableRBs < (nbOfRBs - 1) && availableRBs > 0) {
 		if (!Allocated[i]) {
 #ifdef Allocation
 			std::cout << "RB " << i << " is not yet allocated" << std::endl;
@@ -299,115 +299,103 @@ void RecursiveMaximumExpansion::RBsAllocation() {
 				std::cout << "RB can't be allocated" << std::endl;
 			} else if (left == -1) {
 				selectedUser = MAllocation[right];
-				int j = right - 1;
-				while (j >= 0) {
-					if (users->at(selectedUser)->m_listOfAllocatedRBs.size()
-							!= requiredPRBs[selectedUser]) {
-						Allocated[j] = true;
-						MAllocation[j] = selectedUser;
-						users->at(selectedUser)->m_listOfAllocatedRBs.push_back(
-								j);
-						j--;
-						i++;
-						availableRBs--;
-					} else
-						break; //can't allocate RB
+
+				for (int j = 0; j < right; j++) {
+
+					Allocated[j] = true;
+					MAllocation[j] = selectedUser;
+					users->at(selectedUser)->m_listOfAllocatedRBs.push_back(j);
+					i++;
+					availableRBs--;
 				}
+
 			} //end cas i =0
 			  //case not allocated RBs are in the end of RBs
 			else if (right == nbOfRBs) {
 				selectedUser = MAllocation[left];
 				int j = i;
-				while (j < nbOfRBs) {
-					if (users->at(selectedUser)->m_listOfAllocatedRBs.size()
-							!= requiredPRBs[selectedUser]) {
-						Allocated[j] = true;
-						MAllocation[j] = selectedUser;
-						users->at(selectedUser)->m_listOfAllocatedRBs.push_back(
-								j);
-						j++;
-						i++;
-						availableRBs--;
-					} else {
-						j = nbOfRBs;
-						i = nbOfRBs;
-						break;
+				for (int j = left + 1; j < nbOfRBs; j++) {
 
-					}
-					//can't allocated RB
+					Allocated[j] = true;
+					MAllocation[j] = selectedUser;
+					users->at(selectedUser)->m_listOfAllocatedRBs.push_back(j);
+					i++;
+					availableRBs--;
 				}
+				//can't allocated RB
+
 			} //end case not allocated Rbs are in the end
 
 			//case not allocated Rbs are between allocated UEs
 			else {
 				adjacentRightUser = MAllocation[right];
 				adjacentLeftUser = MAllocation[left];
-				/*M[left]>M[right]
-				 * * if adjacentLeft didn't reach its maximum so RB is allocated to adjacentLeft
-				 * * else
-				 * *** if adjacent Right didn't reach its maximum so RB is allocated to adjacent Right
-				 * ***else RB is not allocated
-				 *
-				 */
-				if (MAllocation[left] != -1) {
-					if (metrics[i][adjacentLeftUser]
-							>= metrics[i][adjacentRightUser]) {
-						if (users->at(adjacentLeftUser)->m_listOfAllocatedRBs.size()
-								< requiredPRBs[adjacentLeftUser]) {
-							selectedUser = adjacentLeftUser;
-							Allocated[i] = true;
-							MAllocation[i] = selectedUser;
-							users->at(selectedUser)->m_listOfAllocatedRBs.push_back(
-									i);
-							availableRBs--;
+				bestMetric = metrics[i][adjacentLeftUser];
+				for (int k = left + 1; k < right; k++) {
+					for (int j = 0; j < users->size(); j++) {
+						if ((bestMetric < metrics[k][j])
+								&& ((j == adjacentLeftUser)
+										|| (j == adjacentRightUser))) {
+							selectedPRB = k;
+							selectedUser = j;
+							bestMetric = metrics[k][j];
 
-						}
-
-						else if ((users->at(adjacentRightUser)->m_listOfAllocatedRBs.size()
-								+ right - i)
-								<= requiredPRBs[adjacentRightUser]) {
-							selectedUser = adjacentRightUser;
-							Allocated[i] = true;
-							MAllocation[i] = selectedUser;
-							users->at(selectedUser)->m_listOfAllocatedRBs.push_back(
-									i);
-							availableRBs--;
-						}
-					}
-
-					/*M[left]<M[right]
-					 * * if adjacentRight didn't reach its maximum so RB is allocated to adjacentRight
-					 * * else
-					 * *** if adjacent Leftt didn't reach its maximum so RB is allocated to adjacent Left
-					 * ***else RB is not allocated
-					 *
-					 */
-					else {
-						if ((users->at(adjacentRightUser)->m_listOfAllocatedRBs.size()
-								+ right - i)
-								<= requiredPRBs[adjacentRightUser]) {
-							selectedUser = adjacentRightUser;
-							Allocated[i] = true;
-							MAllocation[i] = selectedUser;
-							users->at(selectedUser)->m_listOfAllocatedRBs.push_back(
-									i);
-							availableRBs--;
-						}
-
-						else if (users->at(adjacentLeftUser)->m_listOfAllocatedRBs.size()
-								< requiredPRBs[adjacentLeftUser]) {
-							selectedUser = adjacentLeftUser;
-							Allocated[i] = true;
-							MAllocation[i] = selectedUser;
-							users->at(selectedUser)->m_listOfAllocatedRBs.push_back(
-									i);
-							availableRBs--;
 						}
 					}
 				}
-			}
-		}
-		i++;
+				right = selectedPRB + 1;
+				left = selectedPRB - 1;
+				ContinueRight = ContinueLeft = true;
+				while ((ContinueRight || ContinueLeft) && availableRBs > 0) {
+					//start right allocation
+					if (right < nbOfRBs && !Allocated[right]) {
+						//Verify if the best metric at right doesn't correspond to UE
+						for (int j = 0; j < users->size(); j++) {
+
+							if ((j != selectedUser) && !allocatedUser[j]
+									&& requiredPRBs[j] > 0
+									&& (metrics[right][selectedUser]
+											< metrics[right][j])) {
+								ContinueRight = false;
+								break;
+							}
+						}
+						if (ContinueRight) {
+							Allocated[right] = true;
+							users->at(selectedUser)->m_listOfAllocatedRBs.push_back(
+									right);
+							MAllocation[right] = selectedUser;
+							right++;
+							availableRBs--;
+							//std::cout << "right allocation" << std::endl;
+						}
+					} else
+						ContinueRight = false;
+					//Start Left allocation
+					if (left >= 0 && !Allocated[left]) {
+						for (int j = 0; j < users->size(); j++) {
+							if ((j != selectedUser) && !allocatedUser[j]
+									&& requiredPRBs[j] > 0
+									&& (metrics[left][selectedUser]
+											< metrics[left][j])) {
+								ContinueLeft = false;
+								break;
+							}
+						}
+						if (ContinueLeft) {
+							Allocated[left] = true;
+							MAllocation[left] = selectedUser;
+							users->at(selectedUser)->m_listOfAllocatedRBs.push_back(
+									left);
+							left--;
+							availableRBs--;
+						}
+					} else
+						ContinueLeft = false;
+				}
+			}}
+			i++;
+
 	}
 
 	//Affichage
