@@ -34,10 +34,17 @@ public:
     double
     GetInterval (void) const;
 
+    //HB
+    void SetLambda(int lambda);
+    int GetLambda()const;
+   void PoissonRand (void);
+    //int fact(int nbr);
+
 private:
 
 	double m_interval;
 	int m_size;
+	int m_lambda;
 };
 
 
