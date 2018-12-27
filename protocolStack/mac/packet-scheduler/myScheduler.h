@@ -22,6 +22,7 @@ public:
    	virtual void RBsAllocation ();
 
 //HB
+   	double ComputeSchedulingMetric(UserToSchedule* user,RadioBearer *bearer, int subChannel);
 	double ComputeSchedulingMetric(UserToSchedule* user) ;
 	void ChannelSorted(int SizeOfChannelSorted,std::vector<int> &ChannelsSorted, std::vector<int> &bestRBs );
 };
