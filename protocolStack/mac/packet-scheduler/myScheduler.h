@@ -17,14 +17,18 @@ public:
 	myScheduler ();
 	virtual ~myScheduler();
 
-	virtual double ComputeSchedulingMetric (RadioBearer *bearer, double spectralEfficiency, int subChannel);
-    virtual double ComputeSchedulingMetric (UserToSchedule* user, int subchannel);
-   	virtual void RBsAllocation ();
+	virtual double ComputeSchedulingMetric(RadioBearer *bearer,double spectralEfficiency, int subChannel);
+		virtual double ComputeSchedulingMetric(UserToSchedule* user,int subchannel);
+		virtual void RBsAllocation();
 
-//HB
-   	double ComputeSchedulingMetric(UserToSchedule* user,RadioBearer *bearer, int subChannel);
-	double ComputeSchedulingMetric(UserToSchedule* user) ;
-	void ChannelSorted(int SizeOfChannelSorted,std::vector<int> &ChannelsSorted, std::vector<int> &bestRBs );
+		//HB
+		void ChannelSorted (int SizeOfChannelSorted,std::vector<int> &ChannelsSorted, std::vector<int> &bestRBs);
+		double ComputeSchedulingMetricCQI(UserToSchedule* user, int subChannel);
+		double ComputeSchedulingMetricDelay(UserToSchedule* user);
+		double ComputeSchedulingMetricPF(UserToSchedule* user,int RB, int NRB);
+		void UpdateAverageTransmissionRate (void);
+		bool VerifyPower(int nbRB, int requiredPRBs, UserToSchedule* scheduledUser);
+
 };
 
 

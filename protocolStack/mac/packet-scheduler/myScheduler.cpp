@@ -37,9 +37,10 @@
 #include "../../../utility/eesm-effective-sinr.h"
 #include <vector>
 
-//#define test
 //#define SCHEDULER_DEBUG
 //#define Allocation
+
+
 myScheduler::myScheduler() {
 	SetMacEntity(0);
 	CreateUsersToSchedule();
@@ -48,7 +49,6 @@ myScheduler::myScheduler() {
 myScheduler::~myScheduler() {
 	Destroy();
 }
-
 double myScheduler::ComputeSchedulingMetric(RadioBearer *bearer,
 		double spectralEfficiency, int subChannel) {
 	double metric;
@@ -63,54 +63,57 @@ double myScheduler::ComputeSchedulingMetric(UserToSchedule* user,
 	double spectralEfficiency = GetMacEntity()->GetAmcModule()->GetSinrFromCQI(
 			channelCondition);
 
-	metric = spectralEfficiency;
+	metric = spectralEfficiency * 180000;
 
 	return metric;
 }
-double myScheduler::ComputeSchedulingMetric(UserToSchedule* user) {
+double myScheduler::ComputeSchedulingMetricCQI(UserToSchedule* user,
+		int subChannel) {
+
+	double metric;
+
+	int channelCondition = user->m_channelContition.at(subChannel);
+
+	double spectralEfficiency = GetMacEntity()->GetAmcModule()->GetSinrFromCQI(
+			channelCondition);
+	metric = spectralEfficiency * 180000;
+
+	return metric;
+}
+
+double myScheduler::ComputeSchedulingMetricPF(UserToSchedule* user, int RB,
+		int NRB) {
+	/*
+	 * For the PF scheduler the metric is computed
+	 * as follows:
+	 *
+	 * metric = 1- RBi/N_RB
+	 * RBi : number of RBs allocated to user i
+	 * N_RB is the sum of total number of resources available for allocation at each TTI
+	 */
+
+	double metric;
+
+	metric = (double) (1 - (double) RB / NRB);
+	return metric;
+}
+
+double myScheduler::ComputeSchedulingMetricDelay(UserToSchedule* user) {
 	double metric; //rest delay
 
 	double maxDelay;
 	RrcEntity *rrc = user->m_userToSchedule->GetProtocolStack()->GetRrcEntity();
-
-	//GetMacEntity()->GetDevice ()->GetProtocolStack ()
 	for (RrcEntity::RadioBearersContainer::iterator it =
 			rrc->GetRadioBearerContainer()->begin();
 			it != rrc->GetRadioBearerContainer()->end(); it++) {
 		RadioBearer *b = (*it);
 		Application* app = b->GetApplication();
-		//app->SetApplicationID(user->m_userToSchedule->GetIDNetworkNode());
 		maxDelay = app->GetQoSParameters()->GetMaxDelay();
-
 	}
-
 	metric = maxDelay - user->m_delay;
-	//std::cout << "delay " << metric << std::endl;
 	return metric;
 }
-double myScheduler::ComputeSchedulingMetric(UserToSchedule* user,
-		RadioBearer *bearer, int subChannel) {
-	double metric;
-	if ((bearer->GetApplication()->GetApplicationType()
-			== Application::APPLICATION_TYPE_TRACE_BASED)
-			|| (bearer->GetApplication()->GetApplicationType()
-					== Application::APPLICATION_TYPE_CBR)
-			|| (bearer->GetApplication()->GetApplicationType()
-					== Application::APPLICATION_TYPE_VOIP)) {
-		int channelCondition = user->m_channelContition.at(subChannel);
 
-		double spectralEfficiency =
-				GetMacEntity()->GetAmcModule()->GetSinrFromCQI(
-						channelCondition);
-		metric = (spectralEfficiency * 180000.)
-				/ bearer->GetAverageTransmissionRate();
-
-	} else {
-		double maxDelay = bearer->GetQoSParameters()->GetMaxDelay();
-		metric = maxDelay - user->m_delay;
-	}
-	return metric;
-}
 //Sort CQI for each user
 void myScheduler::ChannelSorted(int SizeOfChannelSorted,
 		std::vector<int> &ChannelsSorted, std::vector<int> &bestRBs) {
@@ -124,22 +127,44 @@ void myScheduler::ChannelSorted(int SizeOfChannelSorted,
 				b = bestRBs[i];
 				bestRBs[i] = bestRBs[i + 1];
 				bestRBs[i + 1] = b;
-
 			}
 		}
 	}
 }
-void myScheduler::RBsAllocation() {
 
+bool myScheduler::VerifyPower(int nbRB, int requiredPRBs,
+		UserToSchedule* scheduledUser) {
+	double power;
+	bool VerifyPower;
+	double Pmax = 23;
+	if (nbRB >= requiredPRBs) {
+		power = CalculatePower(requiredPRBs, scheduledUser);
+	} else {
+		power = CalculatePower(nbRB, scheduledUser);
+	}
+	if (power < Pmax) {
+		VerifyPower = true;
+	} else
+		VerifyPower = false;
+	return VerifyPower;
+}
+void myScheduler::RBsAllocation() {
+	/* This is an implementation of an algorithm based on  Recursive Maximum Expansion algorithm (RME) reported in
+	 * L. Temiño, G. Berardinelli, S. Frattasi,  and P.E. Mogensen,
+	 * "Channel-aware scheduling algorithms for SC-FDMA in LTE uplink",  in Proc. PIMRC 2008
+	 *
+	 */
 #ifdef SCHEDULER_DEBUG
-	std::cout << " ---- UL RBs Allocation(myScheduler)";
+	std::cout << " ---- UL RBs Allocation(rme)";
 #endif
 
 	UsersToSchedule *users = GetUsersToSchedule();
 	UserToSchedule* scheduledUser;
 	int nbOfRBs =
 			GetMacEntity()->GetDevice()->GetPhy()->GetBandwidthManager()->GetUlSubChannels().size();
-
+	int requiredPRBs[users->size()];
+	double MCQI[nbOfRBs][users->size()];
+	double MPF[nbOfRBs];
 	int availableRBs;     // No of RB's not allocated
 	int selectedUser;     // user to be selected for allocation
 	int selectedPRB;      // PRB to be selected for allocation
@@ -148,7 +173,6 @@ void myScheduler::RBsAllocation() {
 	int left, right;      // index of left and left PRB's to check
 	bool Allocated[nbOfRBs];
 	double metrics[nbOfRBs][users->size()];
-	int requiredPRBs[users->size()];
 	int MatriceOfAllocation[nbOfRBs];
 	int adjacentLeftUser;
 	int adjacentRightUser;
@@ -168,7 +192,10 @@ void myScheduler::RBsAllocation() {
 	double delay[users->size()];
 	std::vector<UserToSchedule*> M2MUsers;
 	std::vector<UserToSchedule*> H2HUsers;
-	//Some initialization
+	double power[nbOfRBs];
+	double Pmax = 23;
+	double delayThreshold = 0.01;
+	//****Some initialization****/
 	nbrOfScheduledUsers = 0;
 	availableRBs = nbOfRBs;
 	availableH2HRBs = 0.6 * nbOfRBs;
@@ -177,22 +204,21 @@ void myScheduler::RBsAllocation() {
 		Allocated[i] = false;
 		MatriceOfAllocation[i] = -1;
 	}
-
 	//create number of required PRB's per scheduled users
 	for (int j = 0; j < users->size(); j++) {
 		scheduledUser = users->at(j);
 #ifdef SCHEDULER_DEBUG
-		cout << "\n" << "User " << j << std::endl; // << "CQI Vector";
+		cout << "\n" << "User " << j; // << "CQI Vector";
 #endif
-//		std::cout << "CQI " << "\n";
+
 		std::vector<double> sinrs;
 		for (std::vector<int>::iterator c =
 				scheduledUser->m_channelContition.begin();
 				c != scheduledUser->m_channelContition.end(); c++) {
-//			std::cout << *c << " ";
+			//cout << " CQI " << *c << " ";
 			sinrs.push_back(GetMacEntity()->GetAmcModule()->GetSinrFromCQI(*c));
 		}
-//		std::cout << "\n";
+
 		double effectiveSinr = GetEesmEffectiveSinr(sinrs);
 
 		int mcs = GetMacEntity()->GetAmcModule()->GetMCSFromCQI(
@@ -204,17 +230,14 @@ void myScheduler::RBsAllocation() {
 								1) / 8));
 #ifdef SCHEDULER_DEBUG
 		cout << " EffSINR = " << effectiveSinr << "  MCS = " << mcs
-		<< " Required RBs " << requiredPRBs[j] << " data to transmit "
-		<< scheduledUser->m_dataToTransmit << " TB size "
-		<< GetMacEntity()->GetAmcModule()->GetTBSizeFromMCS(mcs, 1)
-		<< "\n";
+				<< "Required RBs " << requiredPRBs[j] << "\n";
 #endif
-
 	}
 
-	//Differentiate between M2M and H2H devices and create metrics
+	//******Differentiate between M2M and H2H devices and create metrics
 	for (int j = 0; j < users->size(); j++) {
 		scheduledUser = users->at(j);
+
 		if (users->at(j)->m_userToSchedule->GetIDNetworkNode() >= 100
 				&& users->at(j)->m_userToSchedule->GetIDNetworkNode() < 500) {
 			H2HUsers.push_back(users->at(j));
@@ -225,8 +248,9 @@ void myScheduler::RBsAllocation() {
 					it != rrc->GetRadioBearerContainer()->end(); it++) {
 				RadioBearer *b = (*it);
 				Application* app = b->GetApplication();
+				b->UpdateAverageTransmissionRate();
 				for (int i = 0; i < nbOfRBs; i++) {
-					metrics[i][j] = ComputeSchedulingMetric(scheduledUser, b,
+					metrics[i][j] = ComputeSchedulingMetricCQI(scheduledUser,
 							i);
 				}
 			}
@@ -240,16 +264,36 @@ void myScheduler::RBsAllocation() {
 #endif
 		} else {
 			M2MUsers.push_back(users->at(j));
-		}
 
+			for (int i = 0; i < nbOfRBs; i++) {
+				MCQI[i][j] = ComputeSchedulingMetricCQI(scheduledUser, i);
+
+			}
+		}
 	}
+
+#ifdef M2Mmetrics
+	std::cout << " available RBs " << nbOfRBs << ", users " << users->size()
+			<< std::endl;
+
+	//*****CQI
+	for (int ii = 0; ii < users->size(); ii++) {
+		std::cout << "CQI Metrics for user "
+				<< users->at(ii)->m_userToSchedule->GetIDNetworkNode() << "\n";
+		for (int jj = 0; jj < nbOfRBs; jj++) {
+			printf("%3d  ", (int) (MCQI[jj][ii]));
+		}
+		std::cout << std::endl;
+	}
+#endif
+
 	unallocatedH2HUsers = H2HUsers.size();
 	unallocatedM2MUsers = M2MUsers.size();
 	//RBs allocation
-	//Start allocation of H2H devices
+	//************Start allocation of H2H devices*****************/
 
 	while (availableH2HRBs > 0 && unallocatedH2HUsers > 0) {
-		// First step: find the best user-RB combo
+		// First step: find the best user-RB combinaison
 		selectedPRB = -1;
 		selectedUser = -1;
 		ContinueRight = true;
@@ -272,9 +316,9 @@ void myScheduler::RBsAllocation() {
 			}
 		}
 #ifdef SCHEDULER_DEBUG
-		std::cout << "**bestMetric  = " << bestMetric
-		<< " selected prb " << selectedPRB << " selected User "
-		<< selectedUser << std::endl;
+		std::cout << "**bestMetric  = " << bestMetric << " selected prb "
+				<< selectedPRB << " selected User " << selectedUser
+				<< std::endl;
 #endif
 		if (selectedUser != -1) {
 			scheduledUser = H2HUsers.at(selectedUser);
@@ -357,27 +401,29 @@ void myScheduler::RBsAllocation() {
 #endif
 	} //end While
 
-	//*********Start M2M Allocation *****/
+//RBs allocation
+//*********Start M2M Allocation *****/
+	/*
+	 * *the UE with the lowest delay is prioritized;
+	 * 	**if 2 UEs have the same delay the one with best metric (MCQI) is selected
+	 * 	* if lowestDelay< delayThreshold => UE is prioritized
+	 * 	=> allocate all required RBs
+	 * *find the bloc of x RBs with high throughput in MCQI
+	 * **if the bloc x allow to allocate the maximum requiredRBs
+	 * ***verify if the power < Pmax
+	 * ***else find next best bloc x that allow to allocate maximum required RBs and garantee Power <Pmax
+	 * *
+	 * *
+	 */
 
-	for (int j = 0; j < M2MUsers.size(); j++) {
-		delay[j] = ComputeSchedulingMetric(users->at(j));
-		//create a matrix of sinr metrics
-		for (int i = 0; i < nbOfRBs; i++) {
-			metrics[i][j] = ComputeSchedulingMetric(M2MUsers.at(j), i);
-		}
-#ifdef SCHEDULER_DEBUG
+	for (int j = 0; j < users->size(); j++) {
+		delay[j] = ComputeSchedulingMetricDelay(users->at(j));
+#ifdef Allocation
 		std::cout << "j " << j << " delay = " << delay[j] << std::endl;
-		std::cout << "metric of " << j << std::endl;
-		for (int jj = 0; jj < nbOfRBs; jj++) {
-			//std::cout  << setw(3) << metrics[jj][ii]/1000 << " ";
-			printf("%3d  ", (int) (metrics[jj][j]));
-		}
-		std::cout << std::endl;
-
 #endif
 	}
-	while (availableRBs > 0 && unallocatedM2MUsers > 0) //
-	{
+
+	while (availableRBs > 0 && unallocatedM2MUsers > 0) {
 
 		//first step: find the best user-RB combinaision
 		selectedPRB = -1;
@@ -386,6 +432,7 @@ void myScheduler::RBsAllocation() {
 		ContinueLeft = true;
 		lowestDelay = (double) ((1 << 30));
 		//Search for the user with lowest delay
+		std::cout << "size " << M2MUsers.size() << std::endl;
 		for (int j = 0; j < M2MUsers.size(); j++) {
 			if (M2MUsers.at(j)->m_listOfAllocatedRBs.size() == 0
 					&& requiredPRBs[j] > 0) //only unallocated users requesting some RB's
@@ -394,16 +441,36 @@ void myScheduler::RBsAllocation() {
 					selectedUser = j;
 					lowestDelay = delay[j];
 				}
+				//if 2 users have the same delay the one with the best CQI will be selected
+				if (lowestDelay == delay[j]) {
+					int bestMetricA, bestMetricB;
+					bestMetricA = bestMetricB = (double) (-(1 << 30));
+					for (int i = 0; i < nbOfRBs; i++) {
+						if (!Allocated[i]) { //check only not allocated RBs
+							//find the best metric for selected User
+							if (bestMetricA < MCQI[i][selectedUser]) {
+								bestMetricA = MCQI[i][selectedUser];
+							}
+							//find the best metric for user j
+							if (bestMetricB < MCQI[i][j]) {
+								bestMetricB = MCQI[i][j];
+							}
+						}
+					}//end for
+					if (bestMetricA < bestMetricB)
+						selectedUser = j;
+				}
 			}
 		}
-
 #ifdef Allocation
 		std::cout << " selected User " << selectedUser << std::endl;
 #endif
-		//Find the 10 best Metrics for selected Ue
+		//find the best RBs for selected M2M
+		//sort Metrics for selected UE
 
 		//initialization
 		if (selectedUser != -1) {
+			scheduledUser = M2MUsers.at(selectedUser);
 			ChannelsSorted.clear();
 			bestRBs.clear();
 			//initialization
@@ -415,16 +482,16 @@ void myScheduler::RBsAllocation() {
 
 			for (int i = 0; i < nbOfRBs; i++) {
 				if (!Allocated[i]) {
-					ChannelsSorted.push_back(metrics[i][selectedUser]);
+					ChannelsSorted.push_back(MCQI[i][selectedUser]);
 					bestRBs.push_back(i);
 				}
 			}
 			ChannelSorted(ChannelsSorted.size(), ChannelsSorted, bestRBs);
 			//affichage
-#ifdef ChannelSorted
+#ifdef SCHEDULER_DEBUG
 			std::cout << "ChannelsSorted\n ";
 			for (int j = 0; j < ChannelsSorted.size(); j++)
-			std::cout << ChannelsSorted[j] << std::endl;
+				std::cout << ChannelsSorted[j] << std::endl;
 #endif
 
 			//find for each best metric the maximum RBs that can be allocated to selectedUE
@@ -435,8 +502,8 @@ void myScheduler::RBsAllocation() {
 					if ((j != selectedUser)
 							&& M2MUsers.at(j)->m_listOfAllocatedRBs.size() == 0
 							&& requiredPRBs[j] > 0
-							&& (metrics[bestRBs[i]][selectedUser]
-									< metrics[bestRBs[i]][j])) {
+							&& (MCQI[bestRBs[i]][selectedUser]
+									< MCQI[bestRBs[i]][j])) {
 						nbRB[i] = 0;
 						Continue = false;
 						break;
@@ -459,8 +526,7 @@ void myScheduler::RBsAllocation() {
 								if ((j != selectedUser)
 										&& M2MUsers.at(j)->m_listOfAllocatedRBs.size()
 												== 0 && requiredPRBs[j] > 0
-										&& (metrics[k][selectedUser]
-												< metrics[k][j])) {
+										&& (MCQI[k][selectedUser] < MCQI[k][j])) {
 									ContinueRight = false;
 									break;
 								}
@@ -476,8 +542,7 @@ void myScheduler::RBsAllocation() {
 								if ((j != selectedUser)
 										&& M2MUsers.at(j)->m_listOfAllocatedRBs.size()
 												== 0 && requiredPRBs[j] > 0
-										&& (metrics[k][selectedUser]
-												< metrics[k][j])) {
+										&& (MCQI[k][selectedUser] < MCQI[k][j])) {
 									ContinueLeft = false;
 									break;
 								}
@@ -489,28 +554,57 @@ void myScheduler::RBsAllocation() {
 					} //end left
 					nbRB[i] = 1 + nbRBLeft[i] + nbRBRight[i];
 				}
-			} //end calculation of possible allocatedRB for each CQI
 
-			bool Verify;
-			//Choisir le CQI qui permet d'avoir le max allocated RB
+#ifdef SCHEDULER_DEBUG
+				std::cout << "nb of RBs = " << nbRB[i] << std::endl;
+
+#endif
+			} //end calculation of possible allocatedRB for each CQI
+			  //Verify if ue has best RB/CQI
+			bool Verify = false;
 			for (int i = 0; i < ChannelsSorted.size(); i++) {
-				Verify = true;
-				if (nbRB[i] >= requiredPRBs[selectedUser]) {
+				if (nbRB[i] > 0) {
 					Verify = true;
+					break;
+				}
+			}
+			//if the selected UE has no RB with best CQI
+			if (Verify == false) {
+				selectedPRB = bestRBs[0];
+			}
+			//Choisir le CQI qui permet d'avoir le min transmission power
+
+			bool VerifyPF;
+			bool verifyPower;
+
+			for (int i = 0; i < ChannelsSorted.size() && Verify; i++) {
+				VerifyPF = true;
+				verifyPower = false;
+				verifyPower = VerifyPower(nbRB[i], requiredPRBs[selectedUser],
+						scheduledUser);
+				if ((nbRB[i] >= requiredPRBs[selectedUser]) && verifyPower) {
+					VerifyPF = true;
 				} else {
 					for (int j = i; j < ChannelsSorted.size(); j++) {
 						if (nbRB[j] > nbRB[i]) {
-							Verify = false;
-							break;
-						}
+							verifyPower = VerifyPower(nbRB[j],
+									requiredPRBs[selectedUser], scheduledUser);
+							if (verifyPower) {
+								VerifyPF = false;
+								break;
+							} else
+								VerifyPF = true;
+
+						} else
+							VerifyPF = true;
 					}
 				}
-				if (Verify) {
+
+				if (VerifyPF) {
 					selectedPRB = bestRBs[i];
 					selectedI = i;
 					break;
 				}
-
 			}
 #ifdef Allocation
 			std::cout << "selected PRB" << selectedPRB << std::endl;
@@ -529,258 +623,81 @@ void myScheduler::RBsAllocation() {
 			availableRBs--;
 			MatriceOfAllocation[selectedPRB] =
 					M2MUsers.at(selectedUser)->m_userToSchedule->GetIDNetworkNode();
-			while ((scheduledUser->m_listOfAllocatedRBs.size()
-					< requiredPRBs[selectedUser])
-					&& (ContinueRight || ContinueLeft) && availableRBs > 0) {
-
-				if ((right <= (selectedPRB + nbRBRight[selectedI]))
-						&& (scheduledUser->m_listOfAllocatedRBs.size()
-								< requiredPRBs[selectedUser])) {
-					Allocated[right] = true;
-					M2MUsers.at(selectedUser)->m_listOfAllocatedRBs.push_back(
-							right);
-					MatriceOfAllocation[right] =
-							M2MUsers.at(selectedUser)->m_userToSchedule->GetIDNetworkNode();
-					right++;
-					availableRBs--;
-				} else
-					ContinueRight = false;
-				if ((left >= (selectedPRB - nbRBLeft[selectedI]))
-						&& (scheduledUser->m_listOfAllocatedRBs.size()
-								< requiredPRBs[selectedUser])) {
-					Allocated[left] = true;
-					MatriceOfAllocation[left] =
-							M2MUsers.at(selectedUser)->m_userToSchedule->GetIDNetworkNode();
-					users->at(selectedUser)->m_listOfAllocatedRBs.push_back(
-							left);
-					left--;
-					availableRBs--;
-				} else
-					ContinueLeft = false;
+			//if the Ue has delay < delay_threshold
+			if (lowestDelay <= delayThreshold) {
+				while ((scheduledUser->m_listOfAllocatedRBs.size()
+						< requiredPRBs[selectedUser])
+						&& (ContinueRight || ContinueLeft) && availableRBs > 0) {
+					if ((right <= nbOfRBs-1) && !Allocated[right]
+							&& (scheduledUser->m_listOfAllocatedRBs.size()
+									< requiredPRBs[selectedUser])) {
+						Allocated[right] = true;
+						M2MUsers.at(selectedUser)->m_listOfAllocatedRBs.push_back(
+								right);
+						MatriceOfAllocation[right] =
+								M2MUsers.at(selectedUser)->m_userToSchedule->GetIDNetworkNode();
+						right++;
+						availableRBs--;
+					} else
+						ContinueRight = false;
+					if ((left >= 0) && !Allocated[left]
+							&& (scheduledUser->m_listOfAllocatedRBs.size()
+									< requiredPRBs[selectedUser])) {
+						Allocated[left] = true;
+						MatriceOfAllocation[left] =
+								M2MUsers.at(selectedUser)->m_userToSchedule->GetIDNetworkNode();
+						users->at(selectedUser)->m_listOfAllocatedRBs.push_back(
+								left);
+						left--;
+						availableRBs--;
+					} else
+						ContinueLeft = false;
+				}
 			}
-			/*for (int i = 0; i < scheduledUser->m_listOfAllocatedRBs.size();
-			 i++)
-			 printf("%d ", scheduledUser->m_listOfAllocatedRBs.at(i));
+			if (Verify) {
+				while ((scheduledUser->m_listOfAllocatedRBs.size()
+						< requiredPRBs[selectedUser])
+						&& (ContinueRight || ContinueLeft) && availableRBs > 0) {
+					if ((right <= (selectedPRB + nbRBRight[selectedI]))
+							&& (scheduledUser->m_listOfAllocatedRBs.size()
+									< requiredPRBs[selectedUser])) {
+						Allocated[right] = true;
+						M2MUsers.at(selectedUser)->m_listOfAllocatedRBs.push_back(
+								right);
+						MatriceOfAllocation[right] =
+								M2MUsers.at(selectedUser)->m_userToSchedule->GetIDNetworkNode();
+						right++;
+						availableRBs--;
+					} else
+						ContinueRight = false;
+					if ((left >= (selectedPRB - nbRBLeft[selectedI]))
+							&& (scheduledUser->m_listOfAllocatedRBs.size()
+									< requiredPRBs[selectedUser])) {
+						Allocated[left] = true;
+						MatriceOfAllocation[left] =
+								M2MUsers.at(selectedUser)->m_userToSchedule->GetIDNetworkNode();
+						users->at(selectedUser)->m_listOfAllocatedRBs.push_back(
+								left);
+						left--;
+						availableRBs--;
+					} else
+						ContinueLeft = false;
+				}
+			}
+#ifdef Allocation
+			printf("Scheduled User = %d Required RBs = %d Allocated RB's= %d\n",
+					scheduledUser->m_userToSchedule->GetIDNetworkNode(),
+					requiredPRBs[selectedUser],
+					scheduledUser->m_listOfAllocatedRBs.size());
+			for (int k = 0; k < scheduledUser->m_listOfAllocatedRBs.size(); k++)
+				printf("%d ", scheduledUser->m_listOfAllocatedRBs.at(k));
 
-			 printf("\n------------------\n");*/
-
-			unallocatedM2MUsers--;
-
-		}		//end if selectedUser !=-1
-		else
+			printf("\n------------------\n");
+#endif
+		} else
 			//no more users to allocate
 			break;
 
-	}
-//end while
+	}			//end while
+}			//end RB Allocation
 
-//not all RBs are allocated
-/*	int i = 0;
-
-	while (i < nbOfRBs && availableRBs < (nbOfRBs - 1) && availableRBs > 0) {
-		if (!Allocated[i]) {
-#ifdef Allocation
-			std::cout << "RB " << i << " is not yet allocated" << std::endl;
-#endif
-			left = i - 1;
-			right = i + 1;
-			while (right < nbOfRBs && (!Allocated[right])) {
-				right++;
-			}
-
-			if (left == -1 && MatriceOfAllocation[right] == -1) {
-#ifdef Allocation
-				std::cout << "RB can't be allocated" << std::endl;
-#endif
-			}
-			//case i =0  or the left RB can't be allocated
-			else if (left == -1) {
-				selectedUser = MatriceOfAllocation[right];
-
-				std::cout << "user "
-						<< users->at(selectedUser)->m_userToSchedule->GetIDNetworkNode()
-						<< std::endl;
-				int j = right - 1;
-				while (j >= 0) {
-					if (users->at(selectedUser)->m_listOfAllocatedRBs.size()
-							!= requiredPRBs[selectedUser]) {
-						Allocated[j] = true;
-						MatriceOfAllocation[j] = selectedUser;
-						users->at(selectedUser)->m_listOfAllocatedRBs.push_back(
-								j);
-#ifdef Allocation
-						std::cout << "allocated RB " << i << " to "
-						<< selectedUser << std::endl;
-#endif
-						j--;
-						i++;
-						availableRBs--;
-					} else
-						break; //can't allocate RB
-				}
-			} //end cas i =0
-			  //case not allocated RBs are in the end of RBs
-			else if (right == nbOfRBs) {
-				selectedUser = MatriceOfAllocation[left];
-				int j = i;
-				while (j < nbOfRBs) {
-					if (users->at(selectedUser)->m_listOfAllocatedRBs.size()
-							!= requiredPRBs[selectedUser]) {
-						Allocated[j] = true;
-						MatriceOfAllocation[j] = selectedUser;
-						users->at(selectedUser)->m_listOfAllocatedRBs.push_back(
-								j);
-#ifdef Allocation
-						std::cout << "allocated RB " << i << " to "
-						<< selectedUser << std::endl;
-#endif
-						j++;
-						i++;
-						availableRBs--;
-					} else {
-#ifdef Allocation
-						std::cout << "can't allocated the rest of RBs"
-						<< std::endl;
-#endif
-						j = nbOfRBs;
-						i = nbOfRBs;
-						break;
-
-					}
-					//can't allocated RB
-				}
-			} //end case not allocated Rbs are in the end
-			  //case not allocated Rbs are between allocated UEs
-			else {
-				adjacentRightUser = MatriceOfAllocation[right];
-				adjacentLeftUser = MatriceOfAllocation[left];
-			M[left]>M[right]
-			 * if adjacentLeft didn't reach its maximum so RB is allocated to adjacentLeft
-			* * else
-			* *** if adjacent Right didn't reach its maximum so RB is allocated to adjacent Right
-			* *** else RB is not allocated
-
-
-			if (MatriceOfAllocation[left] != -1) {
-				if (metrics[i][adjacentLeftUser]
-						>= metrics[i][adjacentRightUser]) {
-					if (users->at(adjacentLeftUser)->m_listOfAllocatedRBs.size()
-							< requiredPRBs[adjacentLeftUser]) {
-						selectedUser = adjacentLeftUser;
-						Allocated[i] = true;
-						MatriceOfAllocation[i] = selectedUser;
-						users->at(selectedUser)->m_listOfAllocatedRBs.push_back(
-								i);
-#ifdef Allocation
-						std::cout << "allocated RB " << i << " to "
-						<< selectedUser << std::endl;
-#endif
-						availableRBs--;
-					} else if ((users->at(adjacentRightUser)->m_listOfAllocatedRBs.size()
-									+ right - i)
-							<= requiredPRBs[adjacentRightUser]) {
-#ifdef SCHEDULER_DEBUG
-						std::cout << " allocated "
-						<< users->at(adjacentRightUser)->m_listOfAllocatedRBs.size()
-						+ right - i << " required "
-						<< requiredPRBs[adjacentRightUser]
-						<< std::endl;
-#endif
-						selectedUser = adjacentRightUser;
-						Allocated[i] = true;
-						MatriceOfAllocation[i] = selectedUser;
-						users->at(selectedUser)->m_listOfAllocatedRBs.push_back(
-								i);
-#ifdef Allocation
-						std::cout << "allocated RB " << i << " to "
-						<< selectedUser << std::endl;
-#endif
-						availableRBs--;
-					}
-				}
-
-				M[left]<M[right]
-				 * if adjacentRight didn't reach its maximum so RB is allocated to adjacentRight
-				* * else
-				* *** if adjacent Leftt didn't reach its maximum so RB is allocated to adjacent Left
-				* *** else RB is not allocated
-				*
-
-				else {
-					if ((users->at(adjacentRightUser)->m_listOfAllocatedRBs.size()
-									+ right - i)
-							<= requiredPRBs[adjacentRightUser]) {
-						selectedUser = adjacentRightUser;
-						Allocated[i] = true;
-						MatriceOfAllocation[i] = selectedUser;
-						users->at(selectedUser)->m_listOfAllocatedRBs.push_back(
-								i);
-#ifdef Allocation
-						std::cout << "allocated RB " << i << " to "
-						<< selectedUser << std::endl;
-#endif
-						availableRBs--;
-					}
-
-					else if (users->at(adjacentLeftUser)->m_listOfAllocatedRBs.size()
-							< requiredPRBs[adjacentLeftUser]) {
-						selectedUser = adjacentLeftUser;
-						Allocated[i] = true;
-						MatriceOfAllocation[i] = selectedUser;
-						users->at(selectedUser)->m_listOfAllocatedRBs.push_back(
-								i);
-#ifdef Allocation
-						std::cout << "allocated RB " << i << " to "
-						<< selectedUser << std::endl;
-#endif
-						availableRBs--;
-					}
-				}
-			}
-
-		}
-	}
-	i++;
-}*/
-//Affichage
-#ifdef Allocation
-for (int i = 0; i < nbOfRBs; i++) {
-	std::cout << "MatriceOfAllocation[" << i << "] =" << MatriceOfAllocation[i]
-	<< std::endl;
-}
-#endif
-
-UserToSchedule* scheduledUser1;
-//Calculate power
-for (int j = 0; j < users->size(); j++) {
-
-	scheduledUser1 = users->at(j);
-	scheduledUser1->m_transmittedData =
-			GetMacEntity()->GetAmcModule()->GetTBSizeFromMCS(
-					scheduledUser1->m_selectedMCS,
-					scheduledUser1->m_listOfAllocatedRBs.size()) / 8;
-	if (scheduledUser1->m_listOfAllocatedRBs.size() == 0)
-		scheduledUser1->m_power += 0;
-	else
-		scheduledUser1->m_power += CalculatePower(
-				scheduledUser1->m_listOfAllocatedRBs.size(), scheduledUser1);
-#ifdef SCHEDULER_DEBUG
-	printf(
-			"Scheduled User = %d mcs = %d Required RB's = %d Allocated RB's= %d\n",
-			scheduledUser1->m_userToSchedule->GetIDNetworkNode(),
-			scheduledUser1->m_selectedMCS, requiredPRBs[j],
-			scheduledUser1->m_listOfAllocatedRBs.size());
-	for (int i = 0; i < scheduledUser1->m_listOfAllocatedRBs.size(); i++)
-	printf("%d ", scheduledUser1->m_listOfAllocatedRBs.at(i));
-
-	printf("\n------------------\n");
-#endif
-	//number of scheduled users per TTI
-	if (scheduledUser1->m_listOfAllocatedRBs.size() > 0)
-		nbrOfScheduledUsers++;
-}
-#ifdef SCHEDULER_DEBUG
-std::cout << "number of scheduled users per TTI " << nbrOfScheduledUsers
-		<< std::endl;
-#endif
-} //end RB Allocation
