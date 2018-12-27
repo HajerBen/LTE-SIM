@@ -23,7 +23,7 @@ public:
 
 //HB
 	double ComputeSchedulingMetric(UserToSchedule* user) ;
-
+	double ComputeSchedulingMetric(UserToSchedule* user,RadioBearer *bearer, int subChannel);
 };
 
 
