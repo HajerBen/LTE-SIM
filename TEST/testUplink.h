@@ -108,6 +108,10 @@ static void TestUplink(double radius,
 		uplink_scheduler_type = ENodeB::LIOUMPAS_V2_UPLINK_SCHEDULER;
 		std::cout << "LioumpasV2 " << std::endl;
 		break;
+	case 9:
+		uplink_scheduler_type = ENodeB::ULScheduler_TYPE_PROPORTIONAL_FAIR;
+		std::cout << "ULScheduler_TYPE_PROPORTIONAL_FAIR " << std::endl;
+		break;
 	default:
 		uplink_scheduler_type = ENodeB::ULScheduler_TYPE_FME;
 		break;
@@ -152,10 +156,9 @@ static void TestUplink(double radius,
 	int videoBitRate = 128;
 
 //Create H2H devices
-	// create 30 H2H
+	// create 30 H2H for CBR app
 	for (int i = 0; i < nbH2H; i++) {
 		//ue's random position
-//	  int maxXY = cell->GetRadius () * 1000;
 		int distance = 200;
 		double posX = (double) (rand() % 1000);
 		double posY = (double) (rand() % 1000);
@@ -194,7 +197,7 @@ static void TestUplink(double radius,
 		ue->SetCqiManager(cqiManager);
 		// *** cbr application
 
-		double IAT = 256 / 16000;
+		double IAT = 16.625;
 		double delay = 0.300;
 		double size = 256;
 		for (int j = 0; j < nbCBR; j++) {
@@ -220,13 +223,53 @@ static void TestUplink(double radius,
 					TransportProtocol::TRANSPORT_PROTOCOL_TYPE_UDP);
 			cbrApp->SetClassifierParameters(cp);
 
-			std::cout << "CREATED CBR APPLICATION, ID " << applicationID
+			std::cout << "CREATED CBR APPLICATION ID " << applicationID
 					<< " IAT " << IAT << " Delay " << delay << std::endl;
 			//update counter
 			destinationPort++;
 			applicationID++;
 		}
+		idUe++;
+	}
+	// create nH2H for video app
+		for (int i = 0; i < nbH2H; i++) {
+			//ue's random position
+			int distance = 200;
+			double posX = (double) (rand() % 1000);
+			double posY = (double) (rand() % 1000);
+			double speedDirection = (double) (rand() % 360) * ((2 * 3.14) / 360);
+			double speed = 3;
 
+			printf("Creating UE %d at (%lf,%lf)\n", idUe, posX, posY);
+
+			UserEquipment* ue = new UserEquipment(idUe, posX, posY, speed,
+					speedDirection, cell, enb, 0, //handover false!
+					Mobility::RANDOM_DIRECTION);
+
+			ue->GetPhy()->SetDlChannel(dlCh);
+			ue->GetPhy()->SetUlChannel(ulCh);
+			ue->GetPhy()->GetDlChannel()->AddDevice(ue);
+
+			WidebandCqiEesmErrorModel *errorModel = new WidebandCqiEesmErrorModel();
+			ue->GetPhy()->SetErrorModel(errorModel);
+			networkManager->GetUserEquipmentContainer()->push_back(ue);
+			//register ue to the enb
+			enb->RegisterUserEquipment(ue);
+			//define the channel realization
+			MacroCellUrbanAreaChannelRealization* c_dl =
+					new MacroCellUrbanAreaChannelRealization(enb, ue);
+			enb->GetPhy()->GetDlChannel()->GetPropagationLossModel()->AddChannelRealization(
+					c_dl);
+			MacroCellUrbanAreaChannelRealization* c_ul =
+					new MacroCellUrbanAreaChannelRealization(ue, enb);
+			enb->GetPhy()->GetUlChannel()->GetPropagationLossModel()->AddChannelRealization(
+					c_ul);
+
+			FullbandCqiManager *cqiManager = new FullbandCqiManager();
+			cqiManager->SetCqiReportingMode(CqiManager::PERIODIC);
+			cqiManager->SetReportingInterval(1);
+			cqiManager->SetDevice(ue);
+			ue->SetCqiManager(cqiManager);
 		// create application
 		// *** video application
 		for (int j = 0; j < nbVideo; j++) {
@@ -286,7 +329,7 @@ static void TestUplink(double radius,
 					TransportProtocol::TRANSPORT_PROTOCOL_TYPE_UDP);
 			VideoApplication.SetClassifierParameters(cp);
 
-			std::cout << "CREATED Video APPLICATION, ID " << applicationID
+			std::cout << "CREATED Video APPLICATION ID " << applicationID
 					<< std::endl;
 			//update counter
 			destinationPort++;
@@ -294,6 +337,47 @@ static void TestUplink(double radius,
 			sourcePort++;
 
 		}
+		idUe++;
+		}
+		// create 30 H2H for voip app
+			for (int i = 0; i < nbH2H; i++) {
+				//ue's random position
+				int distance = 200;
+				double posX = (double) (rand() % 1000);
+				double posY = (double) (rand() % 1000);
+				double speedDirection = (double) (rand() % 360) * ((2 * 3.14) / 360);
+				double speed = 3;
+
+				printf("Creating UE %d at (%lf,%lf)\n", idUe, posX, posY);
+
+				UserEquipment* ue = new UserEquipment(idUe, posX, posY, speed,
+						speedDirection, cell, enb, 0, //handover false!
+						Mobility::RANDOM_DIRECTION);
+
+				ue->GetPhy()->SetDlChannel(dlCh);
+				ue->GetPhy()->SetUlChannel(ulCh);
+				ue->GetPhy()->GetDlChannel()->AddDevice(ue);
+
+				WidebandCqiEesmErrorModel *errorModel = new WidebandCqiEesmErrorModel();
+				ue->GetPhy()->SetErrorModel(errorModel);
+				networkManager->GetUserEquipmentContainer()->push_back(ue);
+				//register ue to the enb
+				enb->RegisterUserEquipment(ue);
+				//define the channel realization
+				MacroCellUrbanAreaChannelRealization* c_dl =
+						new MacroCellUrbanAreaChannelRealization(enb, ue);
+				enb->GetPhy()->GetDlChannel()->GetPropagationLossModel()->AddChannelRealization(
+						c_dl);
+				MacroCellUrbanAreaChannelRealization* c_ul =
+						new MacroCellUrbanAreaChannelRealization(ue, enb);
+				enb->GetPhy()->GetUlChannel()->GetPropagationLossModel()->AddChannelRealization(
+						c_ul);
+
+				FullbandCqiManager *cqiManager = new FullbandCqiManager();
+				cqiManager->SetCqiReportingMode(CqiManager::PERIODIC);
+				cqiManager->SetReportingInterval(1);
+				cqiManager->SetDevice(ue);
+				ue->SetCqiManager(cqiManager);
 
 		// *** voip application
 		for (int j = 0; j < nbVoIP; j++) {
@@ -317,17 +401,17 @@ static void TestUplink(double radius,
 					TransportProtocol::TRANSPORT_PROTOCOL_TYPE_UDP);
 			VoIPApplication.SetClassifierParameters(cp);
 
-			std::cout << "CREATED VOIP APPLICATION, ID " << applicationID
+			std::cout << "CREATED VOIP APPLICATION ID " << applicationID
 					<< std::endl;
 
 			//update counter
 			destinationPort++;
 			applicationID++;
 		}
-		idUe++;
+idUe++;
 	}
 
-	//Create M2M devices
+	//*********Create M2M devices**********/
 
 	for (int i = 0; i < nbM2M; i++) {
 		//ue's random position
@@ -397,7 +481,7 @@ static void TestUplink(double radius,
 					TransportProtocol::TRANSPORT_PROTOCOL_TYPE_UDP);
 			TimeDrivenApp->SetClassifierParameters(cp);
 
-			std::cout << "CREATED Time Driven APPLICATION, ID " << applicationID
+			std::cout << "CREATED TIME_DRIVEN APPLICATION ID " << applicationID
 					<< " IAT " << IAT << " Delay " << delay << std::endl;
 			//update counter
 			destinationPort++;
@@ -405,14 +489,14 @@ static void TestUplink(double radius,
 		}
 		//30% of M2M application are EVENT Driven application
 		if (i >= 0.7 * nbM2M) {
-			double IAT = (double) (rand() % 5 + 0.05);
-			double delay = IAT;
+			double lambda = 50;
+			double delay = 0.05;
 			double size = 125;
 
 			//Create an Application
 			QoSParameters *qos = new QoSParameters();
 			qos->SetMaxDelay(delay);
-			TimeDrivenApplication *EventDrivenApp = new TimeDrivenApplication;
+			EventDrivenApplication *EventDrivenApp = new EventDrivenApplication;
 			// create application
 			EventDrivenApp->SetApplicationID(applicationID);
 			EventDrivenApp->SetSource(ue);
@@ -421,7 +505,7 @@ static void TestUplink(double radius,
 			EventDrivenApp->SetDestinationPort(destinationPort);
 			EventDrivenApp->SetStartTime(startTime);
 			EventDrivenApp->SetStopTime(stopTime);
-			EventDrivenApp->SetInterval(IAT);
+			EventDrivenApp->SetLambda(lambda);
 			EventDrivenApp->SetSize(size);
 			EventDrivenApp->SetQoSParameters(qos);
 
@@ -431,9 +515,9 @@ static void TestUplink(double radius,
 					TransportProtocol::TRANSPORT_PROTOCOL_TYPE_UDP);
 			EventDrivenApp->SetClassifierParameters(cp);
 
-			std::cout << "CREATED Event Driven APPLICATION, ID "
-					<< applicationID << " IAT " << IAT << " Delay " << delay
-					<< std::endl;
+			std::cout << "CREATED EVENT_DRIVEN APPLICATION ID "<< applicationID
+					<< " IAT " << 4 << " Delay " << delay << std::endl;
+
 			//update counter
 			destinationPort++;
 			applicationID++;

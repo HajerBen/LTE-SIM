@@ -33,7 +33,7 @@ void EventDrivenApplication::ScheduleTransmit(double time) {
 }
 
 void EventDrivenApplication::Send(void) {
-	//CREATE A NEW PACKET (ADDING UDP, IP and PDCP HEADERS)
+		//CREATE A NEW PACKET (ADDING UDP, IP and PDCP HEADERS)
 	Packet *packet = new Packet();
 	int uid = Simulator::Init()->GetUID();
 

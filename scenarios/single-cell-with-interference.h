@@ -61,11 +61,11 @@ static void SingleCellWithInterference (int nbCells, double radius,
 
   // define simulation times
   double duration = 46;
-  double flow_duration = 40;
+  double flow_duration = 80;
 
 
   int cluster = 4;
-  double bandwidth = 5;
+  double bandwidth = 10;
 
   // CREATE COMPONENT MANAGER
   Simulator *simulator = Simulator::Init();
@@ -272,6 +272,7 @@ static void SingleCellWithInterference (int nbCells, double radius,
 	  double duration_time = start_time + flow_duration;
 
 	  // *** voip application
+	  if (i< nbUE/2){
 	  for (int j = 0; j < nbVoIP; j++)
 		{
 		  // create application
@@ -349,7 +350,8 @@ static void SingleCellWithInterference (int nbCells, double radius,
 		  applicationID++;
 		  voipApplication++;
 		}
-
+	  }
+	  else {
 
 	  // *** video application
 	  for (int j = 0; j < nbVideo; j++)
@@ -464,7 +466,7 @@ static void SingleCellWithInterference (int nbCells, double radius,
 		  applicationID++;
 		  videoApplication++;
 		}
-
+	  }
 	  // *** be application
 	  for (int j = 0; j < nbBE; j++)
 		{

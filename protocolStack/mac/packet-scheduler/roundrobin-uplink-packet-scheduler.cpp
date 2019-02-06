@@ -173,7 +173,6 @@ void RoundRobinUplinkPacketScheduler::RBsAllocation() {
 //Calculate power
 			scheduledUser->m_power = CalculatePower(
 					scheduledUser->m_listOfAllocatedRBs.size(), scheduledUser);
-
 			//number of scheduled users per TTI
 			if (scheduledUser->m_listOfAllocatedRBs.size() > 0)
 				nbrOfScheduledUsers++;

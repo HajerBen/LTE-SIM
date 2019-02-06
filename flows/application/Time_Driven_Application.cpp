@@ -38,12 +38,14 @@ TimeDrivenApplication::ScheduleTransmit (double time)
   if ( (Simulator::Init()->Now () + time) < GetStopTime () )
     {
       Simulator::Init()->Schedule(time, &TimeDrivenApplication::Send, this);
+
     }
 }
 
 void
 TimeDrivenApplication::Send (void)
 {
+
   //CREATE A NEW PACKET (ADDING UDP, IP and PDCP HEADERS)
   Packet *packet = new Packet ();
   int uid = Simulator::Init()->GetUID ();

@@ -416,12 +416,16 @@ void RecursiveMaximumExpansion::RBsAllocation() {
 				GetMacEntity()->GetAmcModule()->GetTBSizeFromMCS(
 						scheduledUser1->m_selectedMCS,
 						scheduledUser1->m_listOfAllocatedRBs.size()) / 8;
-		if (scheduledUser1->m_listOfAllocatedRBs.size() == 0)
-			scheduledUser1->m_power += 0;
-		else
-			scheduledUser1->m_power += CalculatePower(
-					scheduledUser1->m_listOfAllocatedRBs.size(),
-					scheduledUser1);
+		if (scheduledUser1->m_listOfAllocatedRBs.size() == 0){
+					scheduledUser1->m_power = 0;
+				}
+
+				else
+				{
+					scheduledUser1->m_power = CalculatePower(
+							scheduledUser1->m_listOfAllocatedRBs.size(),
+							scheduledUser1);
+				}
 #ifdef SCHEDULER_DEBUG
 		printf(
 				"Scheduled User = %d mcs = %d Required RB's = %d Allocated RB's= %d\n",
@@ -436,6 +440,8 @@ void RecursiveMaximumExpansion::RBsAllocation() {
 		if (scheduledUser1->m_listOfAllocatedRBs.size() > 0)
 			nbrOfScheduledUsers++;
 	}
-	std::cout << "number of scheduled users per TTI " << nbrOfScheduledUsers
-			<< std::endl;
+#ifdef SCHEDULER_DEBUG
+		std::cout << "number of scheduled users per TTI " << nbrOfScheduledUsers
+				<< std::endl;
+#endif
 } //end RB Allocation

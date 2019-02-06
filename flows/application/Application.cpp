@@ -332,7 +332,10 @@ void Application::Trace(Packet* p) {
 				<< Simulator::Init()->Now() << " " << ue->IsIndoor()
 				<< std::endl;
 
-	} else {
+	}
+	else
+
+	{
 		std::cout << " ID " << p->GetID() << " B " << GetApplicationID()
 				<< " SIZE " << p->GetSize() << " SRC "
 				<< GetSource()->GetIDNetworkNode() << " DST "

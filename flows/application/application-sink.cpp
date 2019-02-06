@@ -144,6 +144,7 @@ ApplicationSink::Receive (Packet* p)
                         << " " << ue->IsIndoor ()
 						<< " T " << Simulator::Init()->Now()//HB
 						<< " POWER "<< ue->GetPower()
+						<< " POWER2 " << ue->GetPower2()
 						<< std::endl;
 
 

@@ -63,6 +63,8 @@ public:
 	//KBA Add Power
 	void SetPower (double power);
 	double GetPower (void);
+	void SetPower2 (double power);
+		double GetPower2 (void);
 	//END KBA
 	//Debug
 	void Print (void);

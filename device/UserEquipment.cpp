@@ -277,6 +277,7 @@ UserEquipment::GetPower (void)
 {
   return m_power;
 }
+
 //END KBA
 
 //Debug

@@ -41,16 +41,16 @@
 static void Test ()
 {
 
-	/*
+	/*	TestStartApplication ();
 	TestSendPacketToTheChannel ();
 	TestStartApplication ();
 	TestEnqueuePackets ();
-	TestDlTransmission ();
+
 	TestPropagationLossModel ();
 	TestCqiFeedbacks ();
 	TestMultiCell ();
 	TestFrequencyReuse ();
     */
+TestDlTransmission ();
 
-	TestUplinkMaximumThroughput ();
 }

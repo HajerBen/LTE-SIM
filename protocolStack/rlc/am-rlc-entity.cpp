@@ -33,6 +33,7 @@
 #include "../../load-parameters.h"
 
 #define MAX_AMD_RETX 5
+#define _RLC_TRACING_ true
 
 AmRlcEntity::AmRlcEntity()
 {

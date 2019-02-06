@@ -801,7 +801,6 @@ void SchedulerTest::RBsAllocation() {
 							scheduledUser1->m_listOfAllocatedRBs.size()) / 8;
 			if (scheduledUser1->m_listOfAllocatedRBs.size() == 0){
 				scheduledUser1->m_power = 0;
-				scheduledUser1->m_power2 = 0;
 			}
 
 			else
@@ -809,9 +808,7 @@ void SchedulerTest::RBsAllocation() {
 				scheduledUser1->m_power = CalculatePower(
 						scheduledUser1->m_listOfAllocatedRBs.size(),
 						scheduledUser1);
-				scheduledUser1->m_power2 = CalculatePower2(
-									scheduledUser1->m_listOfAllocatedRBs.size(),
-									scheduledUser1);
+
 			}
 	#ifdef SCHEDULER_DEBUG1
 			printf("Scheduled User = %d mcs = %d Allocated RB's= %d\n",

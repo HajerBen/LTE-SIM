@@ -86,7 +86,8 @@ public:
 		ULScheduler_TYPE_Recursive_Maximum_Expansion,
 		ULScheduler_TYPE_Carrier_By_Carrier,
 		ULSCHEDULER_TEST,
-		LIOUMPAS_V2_UPLINK_SCHEDULER
+		LIOUMPAS_V2_UPLINK_SCHEDULER,
+		ULScheduler_TYPE_PROPORTIONAL_FAIR
 	  };
 
 	ENodeB ();

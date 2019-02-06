@@ -36,6 +36,7 @@
 #include "../protocolStack/mac/packet-scheduler/myScheduler.h"
 #include "../protocolStack/mac/packet-scheduler/rme-uplink-packet-scheduler.h"
 #include "../protocolStack/mac/packet-scheduler/scheduler-test.h"
+#include "../protocolStack/mac/packet-scheduler/ul-pf-packet-scheduler.h"
 #include "../phy/enb-lte-phy.h"
 #include "../core/spectrum/bandwidth-manager.h"
 #include "../protocolStack/mac/packet-scheduler/FDPS-carrier-by-carrier.h"
@@ -347,6 +348,12 @@ void ENodeB::SetULScheduler(ULSchedulerType type) {
 		scheduler->SetMacEntity(mac);
 		mac->SetUplinkPacketScheduler(scheduler);
 		break;
+	case ENodeB::ULScheduler_TYPE_PROPORTIONAL_FAIR:
+		scheduler = new UlPFScheduler();
+		scheduler->SetMacEntity(mac);
+		mac->SetUplinkPacketScheduler(scheduler);
+		break;
+
 	default:
 		std::cout << "ERROR: invalid scheduler type" << std::endl;
 		scheduler = new MaximumThroughputUplinkPacketScheduler();

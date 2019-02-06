@@ -45,6 +45,7 @@
 #include "../../../flows/MacQueue.h"
 #include "../../../utility/eesm-effective-sinr.h"
 
+
 //#define SCHEDULER_DEBUG
 //#define Allocation
 LioumpasV2::LioumpasV2() {
@@ -127,8 +128,6 @@ void LioumpasV2::RBsAllocation() {
 	double delay[users->size()];
 	double lowestDelay;	  //lowest delay to identify UE with lowest delay
 	int selectedUser;     // user to be selected for allocation
-	int requiredPRBs[users->size()];
-	double metrics[nbOfRBs][users->size()];
 	int selectedPRB;
 	bool Allocated[nbOfRBs];
 	double bestSinr;
@@ -151,86 +150,108 @@ void LioumpasV2::RBsAllocation() {
 	ContinueAllocation = true;
 	availableRBs = nbOfRBs;
 	availableH2HRBs =  nbOfRBs;
+	std::vector<UserToSchedule*> M2MUsers;
+	std::vector<UserToSchedule*> H2HUsers;
 
-
-	//create number of required PRB's per scheduled users
+	//******Differentiate between M2M and H2H devices
 	for (int j = 0; j < users->size(); j++) {
 		scheduledUser = users->at(j);
-#ifdef SCHEDULER_DEBUG
-		cout << "\n" << "User " << j << std::endl; // << "CQI Vector";
+
+		if (users->at(j)->m_userToSchedule->GetIDNetworkNode() >= 100
+				&& users->at(j)->m_userToSchedule->GetIDNetworkNode() < 500) {
+			H2HUsers.push_back(users->at(j));
+
+		} else {
+			M2MUsers.push_back(users->at(j));
+
+		}
+	}
+
+	//create Metrics for H2H and M2M
+	double metrics[nbOfRBs][H2HUsers.size()];
+	double MCQI[nbOfRBs][M2MUsers.size()];
+	int requiredPRBsH2H[H2HUsers.size()];
+	int requiredPRBsM2M[M2MUsers.size()];
+	//create number of required PRB's per scheduled users
+
+	for (int j = 0; j < H2HUsers.size(); j++) {
+		scheduledUser = H2HUsers.at(j);
+		RrcEntity *rrc =
+				scheduledUser->m_userToSchedule->GetProtocolStack()->GetRrcEntity();
+		for (RrcEntity::RadioBearersContainer::iterator it =
+				rrc->GetRadioBearerContainer()->begin();
+				it != rrc->GetRadioBearerContainer()->end(); it++) {
+			RadioBearer *b = (*it);
+			Application* app = b->GetApplication();
+			b->UpdateAverageTransmissionRate();
+			for (int i = 0; i < nbOfRBs; i++) {
+				metrics[i][j] = ComputeSchedulingMetric(scheduledUser, i);
+			}
+		}
+		//Calculate number of required PRBS for H2H devices
+#ifdef SCHEDULER_DEBUG1
+		cout << "\n" << "User " << j; // << "CQI Vector";
 #endif
-//		std::cout << "CQI " << "\n";
+
 		std::vector<double> sinrs;
 		for (std::vector<int>::iterator c =
 				scheduledUser->m_channelContition.begin();
 				c != scheduledUser->m_channelContition.end(); c++) {
-			//std::cout << *c << " ";
+			//cout << " CQI " << *c << " ";
 			sinrs.push_back(GetMacEntity()->GetAmcModule()->GetSinrFromCQI(*c));
 		}
-		//		std::cout << "\n";
+
 		double effectiveSinr = GetEesmEffectiveSinr(sinrs);
 		int mcs = GetMacEntity()->GetAmcModule()->GetMCSFromCQI(
 				GetMacEntity()->GetAmcModule()->GetCQIFromSinr(effectiveSinr));
 		scheduledUser->m_selectedMCS = mcs;
-		requiredPRBs[j] = (floor)(
+		requiredPRBsH2H[j] = (floor)(
 				scheduledUser->m_dataToTransmit
 						/ (GetMacEntity()->GetAmcModule()->GetTBSizeFromMCS(mcs,
 								1) / 8));
-#ifdef SCHEDULER_DEBUG
+#ifdef SCHEDULER_DEBUG1
 		cout << " EffSINR = " << effectiveSinr << "  MCS = " << mcs
-		<< " Required RBs " << requiredPRBs[j] << " data to transmit "
-		<< scheduledUser->m_dataToTransmit << " TB size "
-		<< GetMacEntity()->GetAmcModule()->GetTBSizeFromMCS(mcs, 1)
-		<< "\n";
+		<< "Required RBs " << requiredPRBsH2H[j] << "\n";
 #endif
 
 	}
 
-	std::vector<UserToSchedule*> M2MUsers;
-	std::vector<UserToSchedule*> H2HUsers;
+	for (int j = 0; j < M2MUsers.size(); j++) {
+		scheduledUser = M2MUsers.at(j);
 
-	//Differentiate between M2M and H2H devices and create metrics
-	for (int j = 0; j < users->size(); j++) {
-		scheduledUser = users->at(j);
-		if (users->at(j)->m_userToSchedule->GetIDNetworkNode() >= 100
-				&& users->at(j)->m_userToSchedule->GetIDNetworkNode() < 500) {
-			RrcEntity *rrc = scheduledUser->m_userToSchedule->GetProtocolStack()->GetRrcEntity();
-			H2HUsers.push_back(users->at(j));
-			int app =0;
-			for (RrcEntity::RadioBearersContainer::iterator it =
-					rrc->GetRadioBearerContainer()->begin();
-					it != rrc->GetRadioBearerContainer()->end(); it++) {
-				RadioBearer *b = (*it);
-				Application* app = b->GetApplication();
-				for (int i = 0; i < nbOfRBs; i++) {
-					metrics[i][j] = ComputeSchedulingMetric(scheduledUser, b,
-							i);
-				}
-			}
+		//Calculate number of required PRBS for M2M devices
+#ifdef SCHEDULER_DEBUG1
+		cout << "\n" << "M2M User " << j; // << "CQI Vector";
+#endif
+
+		std::vector<double> sinrs;
+		for (std::vector<int>::iterator c =
+				scheduledUser->m_channelContition.begin();
+				c != scheduledUser->m_channelContition.end(); c++) {
+			//cout << " CQI " << *c << " ";
+			sinrs.push_back(GetMacEntity()->GetAmcModule()->GetSinrFromCQI(*c));
 		}
-		else {
-			M2MUsers.push_back(users->at(j));
-			delay[j] = ComputeSchedulingMetric(users->at(j));
-			//create a matrix of sinr metrics
-			for (int i = 0; i < nbOfRBs; i++) {
-				metrics[i][j] = ComputeSchedulingMetric(users->at(j), i);
-			}
-		}
+
+		double effectiveSinr = GetEesmEffectiveSinr(sinrs);
+		int mcs = GetMacEntity()->GetAmcModule()->GetMCSFromCQI(
+				GetMacEntity()->GetAmcModule()->GetCQIFromSinr(effectiveSinr));
+		scheduledUser->m_selectedMCS = mcs;
+		requiredPRBsM2M[j] = (floor)(
+				scheduledUser->m_dataToTransmit
+						/ (GetMacEntity()->GetAmcModule()->GetTBSizeFromMCS(mcs,
+								1) / 8));
+#ifdef SCHEDULER_DEBUG1
+		cout << " EffSINR = " << effectiveSinr << "  MCS = " << mcs
+		<< "Required RBs " << requiredPRBsM2M[j] << "\n";
+#endif
 	}
+
 	unallocatedH2HUsers = H2HUsers.size();
 	unallocatedM2MUsers = M2MUsers.size();
-#ifdef SCHEDULER_DEBUG
-	for (int ii = 0; ii < H2HUsers.size(); ii++) {
-			std::cout << "Metrics for user "
-			<< users->at(ii)->m_userToSchedule->GetIDNetworkNode() << "\n";
-			for (int jj = 0; jj < nbOfRBs; jj++) {
-				printf("%3d  ", (int) (metrics[jj][ii]));
-			}
-			std::cout << std::endl;
-		}
-#endif
+	//RBs allocation
+	//************Start allocation of H2H devices*****************/
 
-//Start allocation of H2H devices
+
 	while (availableH2HRBs > 0 && unallocatedH2HUsers > 0) {
 		// First step: find the best user-RB combo
 		selectedPRB = -1;
@@ -244,7 +265,7 @@ void LioumpasV2::RBsAllocation() {
 			if (!Allocated[i]) { // check only unallocated PRB's
 				for (int j = 0; j < H2HUsers.size(); j++) {
 					if (H2HUsers.at(j)->m_listOfAllocatedRBs.size() == 0
-							&& requiredPRBs[j] > 0) //only unallocated users requesting some RB's
+							&& requiredPRBsH2H[j] > 0) //only unallocated users requesting some RB's
 						if (bestMetric < metrics[i][j]) {
 							selectedPRB = i;
 							selectedUser = j;
@@ -274,7 +295,7 @@ void LioumpasV2::RBsAllocation() {
 				break; // nothing is available, since we need to have contiguous allocation
 
 			while ((scheduledUser->m_listOfAllocatedRBs.size()
-					!= requiredPRBs[selectedUser])
+					!= requiredPRBsH2H[selectedUser])
 					&& (ContinueRight || ContinueLeft) && availableH2HRBs > 0) {
 				//start right allocation
 				if (right < nbOfRBs && !Allocated[right]) {
@@ -282,7 +303,7 @@ void LioumpasV2::RBsAllocation() {
 					for (int j = 0; j < H2HUsers.size(); j++) {
 
 						if ((j != selectedUser) && H2HUsers.at(j)->m_listOfAllocatedRBs.size() == 0
-								&& requiredPRBs[j] > 0
+								&& requiredPRBsH2H[j] > 0
 								&& (metrics[right][selectedUser]
 										< metrics[right][j])) {
 							ContinueRight = false;
@@ -305,7 +326,7 @@ void LioumpasV2::RBsAllocation() {
 				if (left >= 0 && !Allocated[left]) {
 					for (int j = 0; j < H2HUsers.size(); j++) {
 						if ((j != selectedUser) && H2HUsers.at(j)->m_listOfAllocatedRBs.size() == 0
-								&& requiredPRBs[j] > 0
+								&& requiredPRBsH2H[j] > 0
 								&& (metrics[left][selectedUser]
 										< metrics[left][j])) {
 							ContinueLeft = false;
@@ -337,17 +358,17 @@ void LioumpasV2::RBsAllocation() {
 	//*********Start M2M Allocation *****/
 
 	for (int j = 0; j < M2MUsers.size(); j++) {
-		delay[j] = ComputeSchedulingMetric(users->at(j));
+		delay[j] = ComputeSchedulingMetric(M2MUsers.at(j));
 		//create a matrix of sinr metrics
 		for (int i = 0; i < nbOfRBs; i++) {
-			metrics[i][j] = ComputeSchedulingMetric(M2MUsers.at(j), i);
+			MCQI[i][j] = ComputeSchedulingMetric(M2MUsers.at(j), i);
 		}
 #ifdef SCHEDULER_DEBUG
 		std::cout << "j " << j << " delay = " << delay[j] << std::endl;
 		std::cout << "metric of " << j << std::endl;
 		for (int jj = 0; jj < nbOfRBs; jj++) {
 			//std::cout  << setw(3) << metrics[jj][ii]/1000 << " ";
-			printf("%3d  ", (int) (metric[jj][j]));
+			printf("%3d  ", (int) (MCQI[jj][j]));
 		}
 		std::cout << std::endl;
 #endif
@@ -360,7 +381,7 @@ void LioumpasV2::RBsAllocation() {
 		selectedUser = -1;
 		for (int j = 0; j < M2MUsers.size(); j++) {
 			if (M2MUsers.at(j)->m_listOfAllocatedRBs.size() == 0
-					&& requiredPRBs[j] > 0) //only unallocated users requesting some RB's
+					&& requiredPRBsM2M[j] > 0) //only unallocated users requesting some RB's
 							{
 				if (lowestDelay > delay[j]) {
 					selectedUser = j;
@@ -372,15 +393,15 @@ void LioumpasV2::RBsAllocation() {
 		ContinueAllocation = true;
 		scheduledUser = M2MUsers.at(selectedUser);
 		//step 4 : allocated RBs
-		while (availableRBs > 0 && requiredPRBs[selectedUser] > 0
+		while (availableRBs > 0 && requiredPRBsM2M[selectedUser] > 0
 				&& ContinueAllocation) {
 			selectedPRB = -1;
 			bestSinr = (double) (-(1 << 30));
 			for (int i = 0; i < nbOfRBs; i++) {
 				if (!Allocated[i]) {
-					if (bestSinr < metrics[i][selectedUser]) {
+					if (bestSinr < MCQI[i][selectedUser]) {
 						selectedPRB = i;
-						bestSinr = metrics[i][selectedUser];
+						bestSinr = MCQI[i][selectedUser];
 					}
 				}
 			}
@@ -444,5 +465,8 @@ UserToSchedule* scheduledUser1;
 		if (scheduledUser1->m_listOfAllocatedRBs.size() > 0)
 			nbrOfScheduledUsers++;
 	}
-	//std::cout << "number of scheduled users per TTI " << nbrOfScheduledUsers << std::endl;
+#ifdef SCHEDULER_DEBUG
+		std::cout << "number of scheduled users per TTI " << nbrOfScheduledUsers
+				<< std::endl;
+#endif
 } //end RB Allocation
