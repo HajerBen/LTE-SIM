@@ -13,7 +13,7 @@
 #include "uplink-packet-scheduler.h"
 
 class myScheduler : public UplinkPacketScheduler {
-	std::vector<int> m_M2MScheduled;
+
 public:
 	myScheduler ();
 	virtual ~myScheduler();
